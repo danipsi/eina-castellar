@@ -4,7 +4,7 @@ MVP funcional d’exploració municipal, en català i amb estètica de tauler so
 
 **Per començar sense terminal:** doble clic a `Obre-observatori.cmd`. [Guia d’ús i publicació](./GUIA-D-US.md).
 
-**GitHub gratuït:** [guia de GitHub Pages](./GUIA-GITHUB.md). Inclou un flux preparat de publicació i captura diària; s’activarà quan pugis el repositori públic i configuris Pages.
+**Web públic:** [Observatori de Castellar](https://danipsi.github.io/eina-castellar/), publicat el 14/10/2026. [Repositori](https://github.com/danipsi/eina-castellar) · [Guia de GitHub Pages](./GUIA-GITHUB.md).
 
 ## Funcions
 
@@ -57,7 +57,7 @@ La captura té paginació contrastada, reintents, validació territorial, bloque
 
 Si Windows bloqueja una substitució, tanca la previsualització i repeteix l’actualització. Després d’una captura correcta cal recarregar el navegador; la vigilància de fitxers ignora les dades per evitar bloquejos.
 
-Flux de GitHub Actions preparat a `.github/workflows/pages.yml`, amb captura diària a les 04.23 UTC, publicació a Pages i historial de captures JSON a Git. Encara no hi ha repositori remot ni desplegament públic activats. Cal concretar responsable i condicions abans de publicar a tercers. El filtre preventiu de textos no substitueix una revisió de privacitat. Consulta els límits detallats a la guia.
+Flux de GitHub Actions actiu a `.github/workflows/pages.yml`, amb captura diària programada a les 04.23 UTC, publicació a Pages i historial de captures JSON a Git. La primera publicació ha finalitzat correctament amb la captura inclosa del 13/10/2026; encara no s’ha verificat una captura nova des de GitHub. El filtre preventiu de textos no substitueix una revisió de privacitat. Consulta els límits detallats a la guia.
 
 ## Recerca de partida
 

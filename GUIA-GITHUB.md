@@ -1,6 +1,6 @@
 # Publica l’Observatori a GitHub gratuït
 
-El projecte està preparat per a **GitHub Pages + GitHub Actions**, amb un repositori públic. No necessita Netlify, Cloudflare, un domini de pagament ni claus d’API. Encara cal pujar-lo al teu compte i activar Pages.
+El projecte està publicat amb **GitHub Pages + GitHub Actions** des del 14/10/2026: [obre el web](https://danipsi.github.io/eina-castellar/) · [repositori públic](https://github.com/danipsi/eina-castellar). No necessita Netlify, Cloudflare, un domini de pagament ni claus d’API. La publicació inicial ja està feta; els passos següents es conserven com a referència. Per gestionar la còpia existent amb GitHub Desktop, afegeix la carpeta `E:\eines-ia\projectes-ia\eina-castellar` amb **File → Add local repository**.
 
 ## Primera publicació amb GitHub Desktop
 

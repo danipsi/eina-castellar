@@ -25,7 +25,15 @@ La consulta funciona amb la captura inclosa; no cal actualitzar les dades per pr
 - **Fonts i qualitat:** consulta captura, cobertura, exclusions i canvis. Una data de captura recent no garanteix que l’editor hagi publicat tota l’activitat recent.
 - **Ctrl+K:** porta el focus al cercador global. Esc tanca les fitxes.
 
-## Conserva els dossiers
+## Comparteix consultes i compara exercicis
+
+- **Cerca exacta:** si escrius un codi com `CONT2400054`, només apareixen registres i sessions que contenen aquest codi exacte. «Mostra resultats aproximats» amplia la cerca explícitament a codis semblants, sense atribuir-los cap relació.
+- **Dates futures:** es conserven tal com les publica la font, amb l’avís «Data futura pendent de contrast». No encapçalen la portada i queden fora de Contractació per defecte. El selector de dates permet consultar-les soles o incloure-les.
+- **Copia l’enllaç:** disponible a les consultes i a les fitxes. Manté els filtres, l’ordenació, la pàgina de resultats i el registre obert. En un altre navegador s’obre la mateixa vista pública. Si el navegador bloqueja el portapapers, es mostra l’adreça perquè la copiïs. Les notes i els dossiers no formen part de l’enllaç; una fitxa retirada mostra un avís de no disponibilitat.
+- **Compara exercicis:** a Pressupost, selecciona l’exercici principal i prem aquest botó. Tria l’any base i una mateixa magnitud: inicial, definitiu o liquidat. La taula mostra diferència en euros i variació percentual; els imports obren la font a través de la fitxa. «Exporta comparació» descarrega aquestes files i els enllaços d’origen. Són imports nominals, sense ajust per inflació. Si falta una dada no es calcula la diferència; amb base zero no es calcula el percentatge.
+- **Canvis entre captures:** a Fonts i qualitat, filtra per font i tipus. Les noves captures identifiquen altes i modificacions i permeten obrir la fitxa i consultar els camps alterats. Només es conserven valors anteriors/actuals d’imports i determinats camps estructurats; els textos s’indiquen com a modificats sense reproduir-ne versions antigues. Les retirades són recomptes sense identificadors. Es mostra l’últim lot amb canvis, no un historial acumulatiu. La captura del 13/10/2026 només té recomptes: el detall apareixerà quan una nova actualització detecti canvis.
+
+## Conserva els dossiers locals
 
 Els dossiers es desen a IndexedDB **només al navegador actual**. No se sincronitzen entre ordinadors, perfils, ports o dominis. Si es netegen les dades del navegador, es poden perdre. Descarrega periòdicament una còpia JSON i importa-la al navegador nou. La importació crea un dossier separat per evitar sobreescriure’n un d’existent.
 

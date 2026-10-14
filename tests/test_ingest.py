@@ -11,6 +11,21 @@ spec = importlib.util.spec_from_file_location('ingest', Path(__file__).parents[1
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
 class IngestTest(unittest.TestCase):
+    def record(self, id='test', **values):
+        record = {'id':id, 'title':'Títol públic', 'url':f'https://example.org/{id}', 'capturedAt':'2026-10-13', 'amountCents':100}
+        record.update(values)
+        return record
+
+    def catalog(self, contracts=None, sessions=None, generated='2026-10-13'):
+        contracts = contracts if contracts is not None else [self.record()]
+        sessions = sessions if sessions is not None else [self.record('session-test')]
+        return {'schemaVersion':1, 'generatedAt':generated, 'contracts':contracts, 'sessions':sessions, 'events':[], 'budget':[], 'sources':[], 'changes':[]}
+
+    def temporary_root(self):
+        staging = Path(__file__).parents[1] / 'dades' / 'staging'
+        staging.mkdir(parents=True, exist_ok=True)
+        return tempfile.TemporaryDirectory(dir=staging)
+
     def test_amounts_dates_and_privacy(self):
         self.assertEqual(m.cents('2.642,20 €'), 264220)
         self.assertEqual(m.cents('2642.20'), 264220)
@@ -48,14 +63,19 @@ class IngestTest(unittest.TestCase):
         self.assertEqual(m.parse_agenda('<span class="sessionSummary"><div>1.- Aprovar un conveni sobre reclamacions individuals.</div><div>2.- Modificació de nomenaments personals.</div></span>'), [])
 
     def test_atomic_versioning_and_idempotence(self):
-        r = {'id':'test','title':'Títol públic','url':'https://example.org/document','capturedAt':'2026-10-13','amountCents':100}
-        data = {'schemaVersion':1,'generatedAt':'2026-10-13','contracts':[r], 'sessions':[dict(r)],'events':[],'budget':[],'sources':[],'changes':[]}
-        with tempfile.TemporaryDirectory() as d:
+        data = self.catalog()
+        with self.temporary_root() as d:
             root = Path(d)
             self.assertEqual(m.publish(copy.deepcopy(data),root),2)
+            initial = json.loads((root / 'public/data/catalog.json').read_text(encoding='utf-8'))
+            self.assertEqual(len(initial['changes']), 2)
+            self.assertTrue(all('recordId' not in c and 'fields' not in c for c in initial['changes']))
+            initial_changes = initial['changes']
             data['generatedAt'] = '2026-10-14'
             for section in ['contracts','sessions']: data[section][0]['capturedAt'] = '2026-10-14'
             self.assertEqual(m.publish(copy.deepcopy(data),root),0)
+            unchanged = json.loads((root / 'public/data/catalog.json').read_text(encoding='utf-8'))
+            self.assertEqual(unchanged['changes'], initial_changes)
             with closing(sqlite3.connect(root / 'dades/observatori.sqlite')) as db: self.assertEqual(db.execute('SELECT count(*) FROM versions').fetchone()[0],2)
             original = (root / 'public/data/catalog.json').read_bytes()
             invalid = copy.deepcopy(data); invalid['contracts'][0]['url'] = 'javascript:alert(1)'
@@ -63,11 +83,55 @@ class IngestTest(unittest.TestCase):
             self.assertEqual(original,(root / 'public/data/catalog.json').read_bytes())
             data['contracts'][0]['amountCents'] = 200
             self.assertEqual(m.publish(copy.deepcopy(data),root),1)
-            with closing(sqlite3.connect(root / 'dades/observatori.sqlite')) as db: self.assertEqual(db.execute('SELECT count(*) FROM versions').fetchone()[0],3)
-            data['contracts'][0]['title'] = 'Text substituït per privacitat'
-            m.publish(copy.deepcopy(data),root)
             loaded = json.loads((root / 'public/data/catalog.json').read_text(encoding='utf-8'))
-            self.assertEqual(loaded['contracts'][0]['title'],'Text substituït per privacitat')
+            self.assertEqual(loaded['changes'], [{'date':'2026-10-14', 'source':'contracts', 'kind':'modificats', 'description':'Registre modificat.', 'recordId':'test', 'fields':[{'field':'amountCents', 'before':100, 'after':200}]}])
+            with closing(sqlite3.connect(root / 'dades/observatori.sqlite')) as db: self.assertEqual(db.execute('SELECT count(*) FROM versions').fetchone()[0],3)
+
+    def test_text_fields_never_duplicate_values(self):
+        data = self.catalog(contracts=[self.record(supplier='EMPRESA DE PROVA SL', agenda=['punt antic'])])
+        with self.temporary_root() as d:
+            root = Path(d); m.publish(copy.deepcopy(data), root)
+            current = data['contracts'][0]
+            current.update(title='Text substituït', supplier='ALTRA EMPRESA SL', agenda=['punt nou'], url='https://example.org/nou', capturedAt='2026-10-14')
+            data['generatedAt'] = '2026-10-14'
+            self.assertEqual(m.publish(copy.deepcopy(data), root), 1)
+            change = json.loads((root / 'public/data/catalog.json').read_text(encoding='utf-8'))['changes'][0]
+            by_field = {item['field']: item for item in change['fields']}
+            for field in ['title', 'supplier', 'agenda', 'url']:
+                self.assertEqual(by_field[field], {'field':field})
+
+    def test_removal_is_only_an_anonymous_count(self):
+        removed = self.record('retirat-secret', title='Text retirat confidencial', url='https://example.org/retirat-secret')
+        data = self.catalog(contracts=[self.record('vigent'), removed])
+        with self.temporary_root() as d:
+            root = Path(d); m.publish(copy.deepcopy(data), root)
+            data['contracts'] = [self.record('vigent', capturedAt='2026-10-14')]
+            data['sessions'][0]['capturedAt'] = '2026-10-14'; data['generatedAt'] = '2026-10-14'
+            self.assertEqual(m.publish(copy.deepcopy(data), root), 1)
+            public_text = (root / 'public/data/catalog.json').read_text(encoding='utf-8')
+            change = json.loads(public_text)['changes'][0]
+            self.assertEqual(change, {'date':'2026-10-14', 'source':'contracts', 'kind':'no observats', 'description':'1 registres no observats.'})
+            self.assertNotIn('retirat-secret', public_text)
+            self.assertNotIn('Text retirat confidencial', public_text)
+
+    def test_all_modified_records_are_addressable(self):
+        data = self.catalog(contracts=[self.record('contract-1'), self.record('contract-2')])
+        with self.temporary_root() as d:
+            root = Path(d); m.publish(copy.deepcopy(data), root)
+            data['generatedAt'] = '2026-10-14'
+            for index, record in enumerate(data['contracts'], start=1):
+                record.update(amountCents=100 + index, capturedAt='2026-10-14')
+            data['sessions'][0]['capturedAt'] = '2026-10-14'
+            self.assertEqual(m.publish(copy.deepcopy(data), root), 2)
+            changes = json.loads((root / 'public/data/catalog.json').read_text(encoding='utf-8'))['changes']
+            self.assertEqual([c['recordId'] for c in changes], ['contract-1', 'contract-2'])
+            self.assertTrue(all(c['kind'] == 'modificats' and c['fields'][0]['field'] == 'amountCents' for c in changes))
+
+    def test_change_validation_rejects_text_history(self):
+        data = self.catalog()
+        data['changes'] = [{'date':'2026-10-14', 'source':'contracts', 'kind':'modificats', 'description':'Registre modificat.', 'recordId':'test', 'fields':[{'field':'title', 'before':'antic', 'after':'nou'}]}]
+        with self.assertRaisesRegex(ValueError, 'no publicable'):
+            m.validate(data)
 
     def test_real_budget_reconciliation(self):
         path = Path(__file__).parents[1] / 'public/data/catalog.json'

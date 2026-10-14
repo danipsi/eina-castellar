@@ -8,6 +8,21 @@ export const number = (n: number) => new Intl.NumberFormat('ca-ES').format(n);
 export const date = (s: string | null) => s && !Number.isNaN(Date.parse(s)) ? new Intl.DateTimeFormat('ca-ES', {day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}).format(new Date(s)) : 'Data no informada';
 export const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('ca').trim();
 export const expKey = (s: string) => s.trim().toUpperCase();
+const localDay = new Intl.DateTimeFormat('en', {timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit'});
+export function today() {
+  const parts = localDay.formatToParts(new Date());
+  return ['year', 'month', 'day'].map(type => parts.find(p => p.type === type)!.value).join('-');
+}
+export const isFutureDate = (value: string | null, reference = today()) => !!value && !Number.isNaN(Date.parse(value)) && value.slice(0, 10) > reference;
+export const looksLikeExpedient = (query: string) => /^[A-Z]{2,}\d{5,}(?:[-/][A-Z0-9]+)*$/i.test(query.trim());
+export function exactResults(data: Catalog, query: string) {
+  const key = expKey(query);
+  if (!key) return [];
+  return [
+    ...data.contracts.filter(c => expKey(c.expedient) === key).map(c => ({id: 'contract:' + c.id, kind: 'contract', itemId: c.id})),
+    ...data.sessions.filter(s => s.agenda.some(a => a.expedients.some(e => expKey(e) === key))).map(s => ({id: 'session:' + s.id, kind: 'session', itemId: s.id})),
+  ];
+}
 export const safeUrl = (s: string) => {try {const u = new URL(s); return ['https:', 'http:'].includes(u.protocol) ? u.href : '#';} catch {return '#';}};
 export const budgetTotal = (rows: BudgetRow[], field: 'initialCents' | 'finalCents' | 'executedCents') => rows.length && rows.every(r => r[field] !== null) ? rows.reduce((sum, r) => sum + r[field]!, 0) : null;
 export const ratio = (executed: number | null, total: number | null) => executed !== null && total !== null && total > 0 ? executed / total * 100 : null;
@@ -47,8 +62,8 @@ export function csv(rows: unknown[][]) {
 }
 export function exportContracts(rows: Contract[]) {
   download('contractacio-filtrada.csv', csv([
-    ['Font', 'Expedient', 'Lot', 'Títol', 'Any', 'Procediment', 'Import EUR', 'IVA', 'Data', 'URL', 'Captura', 'Registre', 'Avisos'],
-    ...rows.map(c => [c.source, c.expedient, c.lot, c.title, c.year, c.procedure, c.amountCents === null ? null : (c.amountCents / 100).toFixed(2).replace('.', ','), c.vat, c.date, c.url, c.capturedAt, c.id, c.flags.join(' | ')])
+    ['Font', 'Expedient', 'Lot', 'Títol', 'Any', 'Procediment', 'Import EUR', 'IVA', 'Data', 'URL', 'Captura', 'Registre', 'Avisos', 'Adjudicatari'],
+    ...rows.map(c => [c.source, c.expedient, c.lot, c.title, c.year, c.procedure, c.amountCents === null ? null : (c.amountCents / 100).toFixed(2).replace('.', ','), c.vat, c.date, c.url, c.capturedAt, c.id, [...c.flags, ...(isFutureDate(c.date) ? ['Data futura pendent de contrast'] : [])].join(' | '), c.supplier])
   ]), 'text/csv;charset=utf-8');
 }
 export function dossierMarkdown(d: Dossier) {

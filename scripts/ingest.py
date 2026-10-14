@@ -30,6 +30,8 @@ BUDGET_ID = '595f8620-7a3c-4e38-8be2-7cffa744cd44'
 LIQ_ID = '81f18313-547f-4c87-adbd-c6ce873cb406'
 PRIVATE = re.compile(r'\b(?:\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', re.I)
 SENSITIVE = re.compile(r'assetjament|discapaci|dependència|vulnerab|violència|ajut.{0,20}(?:social|urgència)|expedient.{0,20}disciplin|dades personals|menors d.edat|servei.{0,20}psico', re.I)
+SECTIONS = ('contracts', 'events', 'budget', 'sessions')
+CHANGE_KINDS = {'nous', 'modificats', 'no observats'}
 
 def stamp():
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
@@ -276,8 +278,66 @@ def collect():
     ]
     return {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'sources': sources, 'changes': []}
 
+def safe_change_value(field, value):
+    if field.endswith('Cents'):
+        return value is None or (isinstance(value, int) and not isinstance(value, bool) and abs(value) <= 2**53)
+    if field == 'year':
+        return value is None or (isinstance(value, int) and not isinstance(value, bool))
+    if field == 'date':
+        if value is None: return True
+        if not isinstance(value, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', value): return False
+        try: date.fromisoformat(value)
+        except ValueError: return False
+        return True
+    if field == 'chapter':
+        return value is None or (isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 999) or (isinstance(value, str) and re.fullmatch(r'\d{1,3}', value) is not None)
+    return False
+
+def changed_fields(before, after):
+    fields = []
+    for field in sorted((set(before) | set(after)) - {'capturedAt'}):
+        old_value, new_value = before.get(field), after.get(field)
+        if old_value == new_value: continue
+        change = {'field': field}
+        if safe_change_value(field, old_value) and safe_change_value(field, new_value):
+            change.update(before=old_value, after=new_value)
+        fields.append(change)
+    return fields
+
+def validate_changes(catalog):
+    current_ids = {section: {r['id'] for r in catalog[section]} for section in SECTIONS}
+    if not isinstance(catalog.get('changes'), list): raise ValueError('Historial de canvis invàlid')
+    for change in catalog['changes']:
+        # Compatibilitat de lectura amb el marcador mínim anterior a schemaVersion 1.
+        if 'schemaVersion' not in catalog and isinstance(change, dict) and set(change) == {'description'} and isinstance(change['description'], str) and change['description']:
+            continue
+        if not isinstance(change, dict) or not {'date', 'source', 'kind', 'description'} <= change.keys(): raise ValueError('Canvi incomplet')
+        if set(change) - {'date', 'source', 'kind', 'description', 'recordId', 'fields'}: raise ValueError('Camp de canvi desconegut')
+        if not all(isinstance(change[k], str) and change[k] for k in ['date', 'source', 'kind', 'description']): raise ValueError('Metadades de canvi invàlides')
+        source_name, kind = change['source'], change['kind']
+        if source_name not in SECTIONS or kind not in CHANGE_KINDS: raise ValueError('Tipus de canvi invàlid')
+        record_id = change.get('recordId')
+        if record_id is not None and (not isinstance(record_id, str) or not record_id or record_id not in current_ids[source_name]): raise ValueError('Referència de canvi invàlida')
+        if record_id is not None:
+            expected_description = {'nous': 'Registre nou.', 'modificats': 'Registre modificat.'}.get(kind)
+            if change['description'] != expected_description: raise ValueError('Descripció de canvi no genèrica')
+        else:
+            summary = re.fullmatch(r'(\d+) registres (nous|modificats|no observats)( \(captura inicial\))?\.', change['description'])
+            if not summary or summary[2] != kind: raise ValueError('Resum de canvis invàlid')
+        if kind == 'no observats' and ('recordId' in change or 'fields' in change): raise ValueError('Una retirada no pot identificar registres')
+        if 'fields' not in change: continue
+        if kind != 'modificats' or record_id is None or not isinstance(change['fields'], list) or not change['fields']: raise ValueError('Detall de camps invàlid')
+        seen = set()
+        for field_change in change['fields']:
+            if not isinstance(field_change, dict) or not isinstance(field_change.get('field'), str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9]*', field_change['field']) or field_change['field'] == 'capturedAt': raise ValueError('Camp modificat invàlid')
+            if set(field_change) - {'field', 'before', 'after'} or field_change['field'] in seen: raise ValueError('Detall de camp invàlid')
+            seen.add(field_change['field'])
+            exposed = 'before' in field_change or 'after' in field_change
+            if exposed and (not safe_change_value(field_change['field'], field_change.get('before')) or not safe_change_value(field_change['field'], field_change.get('after'))): raise ValueError('Valor històric no publicable')
+
 def validate(catalog):
-    for section in ['contracts', 'events', 'budget', 'sessions']:
+    if 'schemaVersion' in catalog and catalog['schemaVersion'] != 1: raise ValueError('Versió d’esquema invàlida')
+    for section in SECTIONS:
         ids = set()
         for r in catalog[section]:
             if not r['url'].startswith('https://') or not r['capturedAt'] or r['id'] in ids: raise ValueError('Traçabilitat o identitat invàlida')
@@ -285,6 +345,7 @@ def validate(catalog):
             for k,v in r.items():
                 if k.endswith('Cents') and v is not None and (not isinstance(v, int) or abs(v) > 2**53): raise ValueError('Import no segur')
     if not catalog['contracts'] or not catalog['sessions']: raise ValueError('Catàleg incomplet')
+    validate_changes(catalog)
     if PRIVATE.search(json.dumps(catalog, ensure_ascii=False)): raise ValueError('Identificador personal detectat al paquet')
 
 def payload(record):
@@ -306,30 +367,42 @@ def atomic_json(path, value):
             time.sleep(1 + attempt)
 
 def publish(catalog, root=ROOT):
+    if catalog.get('schemaVersion') != 1: raise ValueError('Versió d’esquema invàlida')
     validate(catalog)
     directory = root / 'public' / 'data'; directory.mkdir(parents=True, exist_ok=True)
     path = directory / 'catalog.json'
     previous = json.loads(path.read_text(encoding='utf-8')) if path.exists() else None
     differences = []
+    for section in SECTIONS:
+        old = {r['id']: r for r in previous[section]} if previous else {}
+        now = {r['id']: r for r in catalog[section]}
+        if previous is None:
+            if now:
+                differences.append({'date': catalog['generatedAt'], 'source': section, 'kind': 'nous', 'description': f'{len(now)} registres nous (captura inicial).'})
+            continue
+        for key in sorted(now.keys() - old.keys()):
+            differences.append({'date': catalog['generatedAt'], 'source': section, 'kind': 'nous', 'description': 'Registre nou.', 'recordId': key})
+        for key in sorted(now.keys() & old.keys()):
+            fields = changed_fields(old[key], now[key])
+            if fields:
+                differences.append({'date': catalog['generatedAt'], 'source': section, 'kind': 'modificats', 'description': 'Registre modificat.', 'recordId': key, 'fields': fields})
+        removed = len(old.keys() - now.keys())
+        if removed:
+            differences.append({'date': catalog['generatedAt'], 'source': section, 'kind': 'no observats', 'description': f'{removed} registres no observats.'})
+    catalog['changes'] = differences if differences else (previous or {}).get('changes', [])
+    # Validar també el lot calculat abans d'escriure la base de dades o el JSON públic.
+    validate(catalog)
     private_dir = root / 'dades'; private_dir.mkdir(exist_ok=True)
     with closing(sqlite3.connect(private_dir / 'observatori.sqlite')) as db, db:
         db.execute('CREATE TABLE IF NOT EXISTS versions (kind TEXT,id TEXT,hash TEXT,payload TEXT,captured_at TEXT,PRIMARY KEY(kind,id,hash))')
         db.execute('CREATE TABLE IF NOT EXISTS releases (captured_at TEXT PRIMARY KEY,hash TEXT,records INTEGER)')
-        for section in ['contracts', 'events', 'budget', 'sessions']:
-            old = {r['id']: r for r in previous[section]} if previous else {}
+        for section in SECTIONS:
             now = {r['id']: r for r in catalog[section]}
-            stats = Counter()
             for key, record in now.items():
                 content = payload(record); digest = hashlib.sha256(content.encode()).hexdigest()
                 db.execute('INSERT OR IGNORE INTO versions VALUES (?,?,?,?,?)', (section,key,digest,content,catalog['generatedAt']))
-                if key not in old: stats['nous'] += 1
-                elif payload(old[key]) != content: stats['modificats'] += 1
-            stats['no observats'] = len(old.keys() - now.keys())
-            for kind, count in stats.items():
-                if count: differences.append({'date': catalog['generatedAt'], 'source': section, 'kind': kind, 'description': f'{count} registres {kind}' + (' (captura inicial).' if previous is None else '.')})
-        catalog['changes'] = differences if differences else (previous or {}).get('changes', [])
         digest = hashlib.sha256(json.dumps(catalog, sort_keys=True).encode()).hexdigest()
-        db.execute('INSERT OR REPLACE INTO releases VALUES (?,?,?)', (catalog['generatedAt'], digest, sum(len(catalog[x]) for x in ['contracts','events','budget','sessions'])))
+        db.execute('INSERT OR REPLACE INTO releases VALUES (?,?,?)', (catalog['generatedAt'], digest, sum(len(catalog[x]) for x in SECTIONS)))
     # Una única substitució del catàleg: el lector veu tota la versió antiga o tota la nova.
     atomic_json(path, catalog)
     atomic_json(directory / 'status.json', {'status': 'ok', 'attemptedAt': catalog['generatedAt'], 'changes': len(differences), 'message': 'Captura completa i validada.'})

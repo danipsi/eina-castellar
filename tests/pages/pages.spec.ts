@@ -13,6 +13,18 @@ test('el paquet de producció carrega sota el nom del repositori', async ({page}
   await page.goto('./#contracts');
   await page.reload();
   await expect(page.getByLabel('Filtra contractes')).toBeVisible();
+  await page.goto('./#search?q=CONT2400054');
+  await expect(page.locator('.subtitle')).toContainText('coincidències exactes del codi');
+  await page.getByRole('button', {name: /PSCP · CONT2400054 · lot 1/}).click();
+  expect(new URL(page.url()).pathname).toBe('/eina-castellar/');
+  await page.reload();
+  await expect(page.getByRole('dialog')).toContainText('CONT2400054');
+  await page.keyboard.press('Escape');
+  await page.goto('./#budget?year=2025&compare=2024&metric=initialCents');
+  await expect(page.getByRole('region', {name: 'Comparació pressupostària'})).toBeVisible();
+  await expect(page.getByLabel('Magnitud de comparació')).toHaveValue('initialCents');
+  await page.setViewportSize({width: 1440, height: 1200});
+  await page.screenshot({path: 'docs/captures/comparacio-anual.png'});
   expect(errors).toEqual([]);
   expect(failed).toEqual([]);
 });

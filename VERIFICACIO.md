@@ -72,3 +72,19 @@ La privacitat aplica minimització de camps, exclusió de NIF i filtre preventiu
 - Execució https://github.com/danipsi/eina-castellar/actions/runs/38536588603: compilació, proves Python i desplegament finalitzats correctament sobre el commit `2b3f677`.
 - Web i catàleg amb resposta HTTP 200; SHA-256 del catàleg remot idèntic al local validat. Cerca `CONT2400054` comprovada al web públic.
 - La captura publicada és la del 13/10/2026. La programació diària està configurada; la consulta de fonts des dels servidors de GitHub encara no s’ha executat. Aquest resultat actualitza l’estat pendent descrit als apartats històrics anteriors.
+
+## Millores de consulta · 14/10/2026
+
+Implementació i verificació locals; aquest apartat no acredita una nova publicació al web públic.
+
+- Cerca exacta: el cas `CONT2400054` retorna 4 registres contractuals i 3 sessions de la captura actual. Les aproximacions són opcionals i s’identifiquen separadament. Un codi inexistent no retorna expedients semblants com si fossin coincidències exactes.
+- Dates futures: el registre de 09/12/2026 no encapçala la portada ni entra al filtre ordinari. Es pot consultar amb el selector de dates, conserva el valor original i l’exportació inclou l’avís.
+- Enllaços: filtres, ordenació, pàgina, cerca, comparació i fitxes es restauren en recarregar o en un altre navegador. Les fitxes retirades tenen estat de no disponibilitat. Comprovats Enrere/Endavant i el mecanisme alternatiu quan el navegador denega copiar al portapapers.
+- Comparació anual: taula d’inicial/definitiu/liquidat amb diferències en euros i percentatges, fonts per exercici i exportació CSV. Exemple verificat: personal liquidat 2024–2025, +652.559,34 € i 5,5 %. Un capítol absent impedeix calcular el total; amb base zero no es calcula el percentatge.
+- Canvis: cada alta o modificació posterior a la primera captura té registre consultable. Imports i camps estructurats segurs disposen d’abans/després; els textos no es reprodueixen a l’historial. Retirades només agregades. El detall de la UI s’ha verificat amb dades de prova interceptades al navegador, sense alterar els JSON reals. La captura existent manté el recompte antic fins a una nova captura amb canvis materials.
+- 12 proves Python superades (capturador i estat de Pages), executades amb el Python del runtime i temporals dins `dades/staging`.
+- 11 proves de navegador superades a Edge, incloent persistència/importació de dossiers, CSV, comparació, novetats i mòbil sense desbordament.
+- Compilació final amb base `/eina-castellar/` i 2 proves de producció superades, incloent recàrrega d’una fitxa amb enllaç directe i comparació pressupostària.
+- Inspecció visual de la comparació integrada en el disseny existent. Captura: `docs/captures/comparacio-anual.png`.
+
+No s’han actualitzat les dades municipals, reconstruït diferències històriques ni afegit subvencions, empreses, nous indicadors o un servei de notificacions. El lot públic de canvis és l’últim lot material, no un historial acumulatiu. Les versions privades de SQLite i l’historial de Git mantenen els límits de retirada ja documentats.

@@ -1,5 +1,5 @@
-import {ArrowDownToLine, ArrowUpRight, ChevronLeft, ChevronRight, CircleHelp, X} from 'lucide-react';
-import {useEffect, useRef} from 'react';
+import {ArrowDownToLine, ArrowUpRight, ChevronLeft, ChevronRight, CircleHelp, Link, X} from 'lucide-react';
+import {useEffect, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import {date, safeUrl} from './lib';
 
@@ -12,6 +12,15 @@ export function PageTitle({eyebrow, title, children, actions}: {eyebrow: string;
   return <div className="page-heading"><div><p className="eyebrow">{eyebrow}</p><h1 tabIndex={-1}>{title}</h1>{children && <p className="subtitle">{children}</p>}</div>{actions && <div className="heading-actions">{actions}</div>}</div>;
 }
 export function DownloadButton({onClick, children = 'Exporta CSV'}: {onClick: () => void; children?: ReactNode}) {return <button className="button secondary" onClick={onClick}><ArrowDownToLine size={16}/>{children}</button>;}
+export function ShareLink() {
+  const [message, setMessage] = useState(''), [fallback, setFallback] = useState('');
+  useEffect(() => {if (!message) return; const timer = setTimeout(() => setMessage(''), 3500); return () => clearTimeout(timer);}, [message]);
+  async function copy() {
+    try {await navigator.clipboard.writeText(location.href); setFallback(''); setMessage('Enllaç copiat');}
+    catch {setFallback(location.href); setMessage('Selecciona i copia aquest enllaç.');}
+  }
+  return <div className="share-link"><button className="button secondary" onClick={copy}><Link size={15}/>Copia l’enllaç</button>{message && <span role="status">{message}</span>}{fallback && <input readOnly aria-label="Enllaç per compartir" value={fallback} onFocus={e => e.target.select()}/>}</div>;
+}
 export function Pagination({page, total, size = 20, setPage}: {page: number; total: number; size?: number; setPage: (page: number) => void}) {
   const count = Math.max(1, Math.ceil(total / size));
   return <div className="pagination"><span>{total ? (page - 1) * size + 1 : 0}–{Math.min(page * size, total)} de {total}</span><div><button aria-label="Pàgina anterior" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft size={17}/></button><span>{page} / {count}</span><button aria-label="Pàgina següent" disabled={page >= count} onClick={() => setPage(page + 1)}><ChevronRight size={17}/></button></div></div>;

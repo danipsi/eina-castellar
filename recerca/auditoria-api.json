@@ -1,0 +1,1598 @@
+{
+  "data_estudi": "2026-10-13",
+  "metodologia": "Lectura directa paginada; sense noms, NIF personals ni text lliure desats",
+  "ckan": [
+    {
+      "name": "factures",
+      "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=2e86b79d-b79d-4ae0-9f87-1a56f1c49a4f&fields=EXERCICI%2CDATA_FACTURA%2CDATA_REGISTRE%2CIMPORT_FACTURA%2CCODI_ENS",
+      "total": 28552,
+      "fetched": 28552,
+      "fields": [
+        {
+          "id": "EXERCICI",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "DATA_FACTURA",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "DATA_REGISTRE",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "IMPORT_FACTURA",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "CODI_ENS",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        }
+      ],
+      "years": [
+        {
+          "Name": "2019",
+          "Count": 4431
+        },
+        {
+          "Name": "2020",
+          "Count": 3609
+        },
+        {
+          "Name": "2021",
+          "Count": 3853
+        },
+        {
+          "Name": "2022",
+          "Count": 4170
+        },
+        {
+          "Name": "2023",
+          "Count": 4270
+        },
+        {
+          "Name": "2024",
+          "Count": 3803
+        },
+        {
+          "Name": "2025",
+          "Count": 3824
+        },
+        {
+          "Name": "2026",
+          "Count": 592
+        }
+      ],
+      "missing": {
+        "EXERCICI": 0,
+        "IMPORT_FACTURA": 0,
+        "DATA_REGISTRE": 0,
+        "DATA_FACTURA": 0,
+        "CODI_ENS": 0
+      },
+      "date_ranges": {
+        "DATA_REGISTRE": [
+          "2019-01-01T00:00:00",
+          "2026-12-03T15:00:04"
+        ],
+        "DATA_FACTURA": [
+          "1923-07-19T00:00:00",
+          "2026-12-03T00:00:00"
+        ]
+      }
+    },
+    {
+      "name": "proveidors",
+      "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=b8c6a773-1cf2-4592-a9a2-92f30a645985&fields=EXERCICI%2CIMPORT%2CCODI_ENS",
+      "total": 5558,
+      "fetched": 5558,
+      "fields": [
+        {
+          "id": "EXERCICI",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "IMPORT",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "CODI_ENS",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        }
+      ],
+      "years": [
+        {
+          "Name": "2019",
+          "Count": 831
+        },
+        {
+          "Name": "2020",
+          "Count": 615
+        },
+        {
+          "Name": "2021",
+          "Count": 739
+        },
+        {
+          "Name": "2022",
+          "Count": 808
+        },
+        {
+          "Name": "2023",
+          "Count": 802
+        },
+        {
+          "Name": "2024",
+          "Count": 779
+        },
+        {
+          "Name": "2025",
+          "Count": 759
+        },
+        {
+          "Name": "2026",
+          "Count": 225
+        }
+      ],
+      "missing": {
+        "EXERCICI": 0,
+        "IMPORT": 0,
+        "CODI_ENS": 0
+      },
+      "date_ranges": {}
+    },
+    {
+      "name": "convenis",
+      "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=a2ca7c35-3afa-41f4-87e6-1d1645d0291a&fields=CODI_EXPEDIENT%2CDATA_INICI%2CDATA_FINAL%2CESTAT",
+      "total": 283,
+      "fetched": 283,
+      "fields": [
+        {
+          "id": "CODI_EXPEDIENT",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "DATA_INICI",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "DATA_FINAL",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "ESTAT",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        }
+      ],
+      "years": [],
+      "missing": {
+        "ESTAT": 0,
+        "CODI_EXPEDIENT": 0,
+        "DATA_INICI": 0,
+        "DATA_FINAL": 18
+      },
+      "date_ranges": {
+        "DATA_INICI": [
+          "2015-01-01T00:00:00",
+          "2025-11-03T00:00:00"
+        ],
+        "DATA_FINAL": [
+          "1900-01-01T00:00:00",
+          "2050-11-30T00:00:00"
+        ]
+      }
+    },
+    {
+      "name": "pressupost",
+      "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=595f8620-7a3c-4e38-8be2-7cffa744cd44&filters=%7B%22CODI_ENS%22%3A%22805170005%22%7D",
+      "total": 3847,
+      "fetched": 3847,
+      "fields": [
+        {
+          "id": "_id",
+          "type": "int"
+        },
+        {
+          "id": "ANY_EXERCICI",
+          "type": "text"
+        },
+        {
+          "id": "TIPUS_PARTIDA",
+          "type": "text"
+        },
+        {
+          "id": "TIPUS_CLASSIF",
+          "type": "text"
+        },
+        {
+          "id": "CODI_PANTALLA",
+          "type": "text"
+        },
+        {
+          "id": "NIVELL",
+          "type": "text"
+        },
+        {
+          "id": "DESCRIPCIO",
+          "type": "text"
+        },
+        {
+          "id": "IMPORT",
+          "type": "text"
+        },
+        {
+          "id": "ID_ESTRUCTURA",
+          "type": "text"
+        },
+        {
+          "id": "ESTRUCTURA",
+          "type": "text"
+        },
+        {
+          "id": "CODI_ENS",
+          "type": "text"
+        },
+        {
+          "id": "NOM_COMPLERT",
+          "type": "text"
+        }
+      ],
+      "years": [
+        {
+          "Name": "2022",
+          "Count": 768
+        },
+        {
+          "Name": "2023",
+          "Count": 767
+        },
+        {
+          "Name": "2024",
+          "Count": 768
+        },
+        {
+          "Name": "2025",
+          "Count": 771
+        },
+        {
+          "Name": "2026",
+          "Count": 773
+        }
+      ],
+      "missing": {
+        "DESCRIPCIO": 0,
+        "NOM_COMPLERT": 0,
+        "TIPUS_PARTIDA": 0,
+        "NIVELL": 0,
+        "_id": 0,
+        "CODI_PANTALLA": 0,
+        "ANY_EXERCICI": 0,
+        "CODI_ENS": 0,
+        "ID_ESTRUCTURA": 0,
+        "ESTRUCTURA": 0,
+        "IMPORT": 0,
+        "TIPUS_CLASSIF": 0
+      },
+      "date_ranges": {}
+    },
+    {
+      "name": "liquidacio",
+      "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=5b96829f-d724-4059-a38a-abf514830558&filters=%7B%22CODI_ENS%22%3A%22805170005%22%7D",
+      "total": 5622,
+      "fetched": 5622,
+      "fields": [
+        {
+          "id": "_id",
+          "type": "int"
+        },
+        {
+          "id": "ANY_EXERCICI",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "TIPUS_PARTIDA",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "TIPUS_CLASSIF",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "CODI_PANTALLA",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "NIVELL",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "DESCRIPCIO",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "IMPORT_REC_PAG",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "IMPORT_DRET_OBLIG",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "IMPORT_PREV_CRED",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "IMP_EXE_TANC",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "ID_ESTRUCTURA",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "ESTRUCTURA",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "CODI_ENS",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "NOM_COMPLERT",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        }
+      ],
+      "years": [
+        {
+          "Name": "2010",
+          "Count": 302
+        },
+        {
+          "Name": "2011",
+          "Count": 291
+        },
+        {
+          "Name": "2012",
+          "Count": 761
+        },
+        {
+          "Name": "2013",
+          "Count": 411
+        },
+        {
+          "Name": "2014",
+          "Count": 468
+        },
+        {
+          "Name": "2015",
+          "Count": 296
+        },
+        {
+          "Name": "2016",
+          "Count": 299
+        },
+        {
+          "Name": "2017",
+          "Count": 298
+        },
+        {
+          "Name": "2018",
+          "Count": 347
+        },
+        {
+          "Name": "2019",
+          "Count": 313
+        },
+        {
+          "Name": "2020",
+          "Count": 298
+        },
+        {
+          "Name": "2021",
+          "Count": 299
+        },
+        {
+          "Name": "2022",
+          "Count": 295
+        },
+        {
+          "Name": "2023",
+          "Count": 309
+        },
+        {
+          "Name": "2024",
+          "Count": 311
+        },
+        {
+          "Name": "2025",
+          "Count": 324
+        }
+      ],
+      "missing": {
+        "ID_ESTRUCTURA": 0,
+        "_id": 0,
+        "TIPUS_CLASSIF": 0,
+        "CODI_ENS": 0,
+        "ANY_EXERCICI": 0,
+        "IMPORT_REC_PAG": 437,
+        "ESTRUCTURA": 0,
+        "IMPORT_PREV_CRED": 437,
+        "CODI_PANTALLA": 0,
+        "DESCRIPCIO": 0,
+        "NIVELL": 0,
+        "NOM_COMPLERT": 0,
+        "IMP_EXE_TANC": 5622,
+        "TIPUS_PARTIDA": 0,
+        "IMPORT_DRET_OBLIG": 437
+      },
+      "date_ranges": {}
+    },
+    {
+      "name": "liquidacio_capitols",
+      "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=81f18313-547f-4c87-adbd-c6ce873cb406&filters=%7B%22CODI_ENS%22%3A%22805170005%22%7D",
+      "total": 252,
+      "fetched": 252,
+      "fields": [
+        {
+          "id": "_id",
+          "type": "int"
+        },
+        {
+          "id": "CODI_ENS",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "NOM_COMPLERT",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "ANY_EXERCICI",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "TIPUS_PARTIDA",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "CODI_CAPITOL",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "CAPITOL",
+          "type": "text",
+          "info": {
+            "type_override": "text"
+          }
+        },
+        {
+          "id": "IMPORT_PRESSU_FINAL",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "IMPORT_LIQUIDAT",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        }
+      ],
+      "years": [
+        {
+          "Name": "2010",
+          "Count": 16
+        },
+        {
+          "Name": "2011",
+          "Count": 16
+        },
+        {
+          "Name": "2012",
+          "Count": 17
+        },
+        {
+          "Name": "2013",
+          "Count": 18
+        },
+        {
+          "Name": "2014",
+          "Count": 18
+        },
+        {
+          "Name": "2015",
+          "Count": 14
+        },
+        {
+          "Name": "2016",
+          "Count": 15
+        },
+        {
+          "Name": "2017",
+          "Count": 15
+        },
+        {
+          "Name": "2018",
+          "Count": 15
+        },
+        {
+          "Name": "2019",
+          "Count": 15
+        },
+        {
+          "Name": "2020",
+          "Count": 15
+        },
+        {
+          "Name": "2021",
+          "Count": 15
+        },
+        {
+          "Name": "2022",
+          "Count": 15
+        },
+        {
+          "Name": "2023",
+          "Count": 15
+        },
+        {
+          "Name": "2024",
+          "Count": 16
+        },
+        {
+          "Name": "2025",
+          "Count": 17
+        }
+      ],
+      "missing": {
+        "IMPORT_LIQUIDAT": 1,
+        "TIPUS_PARTIDA": 0,
+        "NOM_COMPLERT": 0,
+        "_id": 0,
+        "CODI_ENS": 0,
+        "CODI_CAPITOL": 0,
+        "CAPITOL": 0,
+        "IMPORT_PRESSU_FINAL": 1,
+        "ANY_EXERCICI": 0
+      },
+      "date_ranges": {}
+    },
+    {
+      "name": "efact",
+      "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=4d148e9b-ebed-477a-bfff-22bd3567dcd8&filters=%7B%22CODI_ENS_RECEPTOR%22%3A%22805170005%22%7D&fields=DATA%2CCODI_ENS_RECEPTOR%2CREGISTRADA%2CREGISTRADARCF%2CCOMPTABILITZADA%2CPAGADA%2CREBUTJADA",
+      "total": 0,
+      "fetched": 0,
+      "fields": [
+        {
+          "id": "DATA",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "CODI_ENS_RECEPTOR",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "REGISTRADA",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "REGISTRADARCF",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "COMPTABILITZADA",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "PAGADA",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "REBUTJADA",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        }
+      ],
+      "years": [],
+      "missing": {
+        "REGISTRADA": 0,
+        "CODI_ENS_RECEPTOR": 0,
+        "REGISTRADARCF": 0,
+        "DATA": 0,
+        "PAGADA": 0,
+        "COMPTABILITZADA": 0,
+        "REBUTJADA": 0
+      },
+      "date_ranges": {}
+    },
+    {
+      "name": "subvencions",
+      "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=30798421-5952-4420-a769-d1121beb6534&filters=%7B%22CODI_ENS%22%3A%22805170005%22%7D&fields=DATA_DE_CONCESSIO%2CIMPORT%2CCODI_ENS",
+      "total": 686,
+      "fetched": 686,
+      "fields": [
+        {
+          "id": "DATA_DE_CONCESSIO",
+          "type": "timestamp",
+          "info": {
+            "type_override": "timestamp"
+          }
+        },
+        {
+          "id": "IMPORT",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        },
+        {
+          "id": "CODI_ENS",
+          "type": "numeric",
+          "info": {
+            "type_override": "numeric"
+          }
+        }
+      ],
+      "years": [],
+      "missing": {
+        "DATA_DE_CONCESSIO": 0,
+        "IMPORT": 0,
+        "CODI_ENS": 0
+      },
+      "date_ranges": {
+        "DATA_DE_CONCESSIO": [
+          "2022-05-17T00:00:00",
+          "2026-07-31T00:00:00"
+        ]
+      }
+    }
+  ],
+  "socrata": [
+    {
+      "dataset": "ybgg-dgi6",
+      "url": "https://analisi.transparenciacatalunya.cat/resource/ybgg-dgi6.json?$where=codi_organ%3D%273411306%27&$select=id_intern,codi_expedient,numero_lot,procediment,data_adjudicacio_contracte,ofertes_rebudes,import_adjudicacio_sense,codi_ine10,codi_dir3&$limit=50000",
+      "count": 698,
+      "columns": [
+        {
+          "fieldName": "codi_ambit",
+          "name": "codi_ambit",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "nom_ambit",
+          "name": "nom_ambit",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_departament_ens",
+          "name": "codi_departament_ens",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "nom_departament_ens",
+          "name": "nom_departament_ens",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_organ",
+          "name": "codi_organ",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "nom_organ",
+          "name": "nom_organ",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_unitat",
+          "name": "codi_unitat",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "nom_unitat",
+          "name": "nom_unitat",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_ine10",
+          "name": "codi_ine10",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_dir3",
+          "name": "codi_dir3",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_expedient",
+          "name": "codi_expedient",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "tipus_contracte",
+          "name": "tipus_contracte",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "procediment",
+          "name": "procediment",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "fase_publicacio",
+          "name": "fase_publicacio",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "denominacio",
+          "name": "denominacio",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "objecte_contracte",
+          "name": "objecte_contracte",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "valor_estimat_contracte",
+          "name": "valor_estimat_contracte",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "codi_nuts",
+          "name": "codi_nuts",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "lloc_execucio",
+          "name": "lloc_execucio",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "durada_contracte",
+          "name": "durada_contracte",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "termini_presentacio_ofertes",
+          "name": "termini_presentacio_ofertes",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_futura",
+          "name": "data_publicacio_futura",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_previ",
+          "name": "data_publicacio_previ",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_anunci",
+          "name": "data_publicacio_anunci",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_adjudicacio",
+          "name": "data_publicacio_adjudicacio",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_formalitzacio",
+          "name": "data_publicacio_formalitzacio",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_anul",
+          "name": "data_publicacio_anul",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "numero_lot",
+          "name": "numero_lot",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "descripcio_lot",
+          "name": "descripcio_lot",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_cpv",
+          "name": "codi_cpv",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "tipus_identificacio",
+          "name": "tipus_identificacio_adjudicatari",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "identificacio_adjudicatari",
+          "name": "identificacio_adjudicatari",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "denominacio_adjudicatari",
+          "name": "denominacio_adjudicatari",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "import_adjudicacio_sense",
+          "name": "import_adjudicacio_sense_iva",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "import_adjudicacio_amb_iva",
+          "name": "import_adjudicacio_amb_iva",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "ofertes_rebudes",
+          "name": "ofertes_rebudes",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "resultat",
+          "name": "resultat",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "enllac_publicacio",
+          "name": "enllac_publicacio",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "es_agregada",
+          "name": "es_agregada",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "data_adjudicacio_contracte",
+          "name": "data_adjudicacio_contracte",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_formalitzacio_contracte",
+          "name": "data_formalitzacio_contracte",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "tipus_tramitacio",
+          "name": "tipus_tramitacio",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "racionalitzacio_contractacio",
+          "name": "racionalitzacio_contractacio",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "tipus_financament",
+          "name": "tipus_financament",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "eina_presentacio_electronica",
+          "name": "eina_presentacio_electronica",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "altres_eines_licitacio",
+          "name": "altres_eines_licitacio_electronica",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "no_admet_eina_licitacio",
+          "name": "no_admet_eina_licitacio_electronica",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "pressupost_licitacio_sense",
+          "name": "pressupost_licitacio_sense_iva",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "pressupost_licitacio_sense_1",
+          "name": "pressupost_licitacio_sense_iva_expedient",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "pressupost_licitacio_amb",
+          "name": "pressupost_licitacio_amb_iva",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "pressupost_licitacio_amb_1",
+          "name": "pressupost_licitacio_amb_iva_expedient",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "valor_estimat_expedient",
+          "name": "valor_estimat_expedient",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "data_publicacio_consulta",
+          "name": "data_publicacio_consulta_mercat",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_avaluacio",
+          "name": "data_publicacio_avaluacio",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_contracte",
+          "name": "data_publicacio_contracte_agregat",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_publicacio_encarrec",
+          "name": "data_publicacio_encarrec",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "tipus_empresa",
+          "name": "tipus_empresa",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "url_json_futura",
+          "name": "url_json_futura",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "url_json_cpm",
+          "name": "url_json_cpm",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "url_json_previ",
+          "name": "url_json_previ",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "url_json_licitacio",
+          "name": "url_json_licitacio",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "url_json_avaluacio",
+          "name": "url_json_avaluacio",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "url_json_adjudicacio",
+          "name": "url_json_adjudicacio",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "url_json_formalitzacio",
+          "name": "url_json_formalitzacio",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "url_json_anulacio",
+          "name": "url_json_anulacio",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "url_json_agregada",
+          "name": "url_json_agregada",
+          "dataTypeName": "url"
+        },
+        {
+          "fieldName": "id_intern",
+          "name": "id_intern",
+          "dataTypeName": "text"
+        }
+      ],
+      "missing": {
+        "import_adjudicacio_sense": 72,
+        "procediment": 93,
+        "id_intern": 0,
+        "codi_expedient": 1,
+        "numero_lot": 452,
+        "data_adjudicacio_contracte": 63,
+        "ofertes_rebudes": 410
+      },
+      "expedients": 622,
+      "groups": [
+        {
+          "Name": "",
+          "Count": 93
+        },
+        {
+          "Name": "Altres procediments segons instruccions internes",
+          "Count": 1
+        },
+        {
+          "Name": "Contracte menor",
+          "Count": 306
+        },
+        {
+          "Name": "Licitació amb negociació",
+          "Count": 1
+        },
+        {
+          "Name": "Negociat sense publicitat",
+          "Count": 22
+        },
+        {
+          "Name": "Obert",
+          "Count": 170
+        },
+        {
+          "Name": "Obert simplificat",
+          "Count": 55
+        },
+        {
+          "Name": "Obert simplificat abreujat",
+          "Count": 49
+        },
+        {
+          "Name": "Tramitacio amb mesures de gestió eficient",
+          "Count": 1
+        }
+      ],
+      "date_range": []
+    },
+    {
+      "dataset": "8idu-wkjv",
+      "url": "https://analisi.transparenciacatalunya.cat/resource/8idu-wkjv.json?$where=codi_organ%3D%273411306%27&$select=codi_expedient,numero_lot,tipus_actuacio_execucio,data,import_sense_iva&$limit=50000",
+      "count": 128,
+      "columns": [
+        {
+          "fieldName": "codi_ambit",
+          "name": "Codi àmbit",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "nom_ambit",
+          "name": "Nom àmbit",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_departament_ens",
+          "name": "Codi departament ens",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "nom_departament_ens",
+          "name": "Nom departament ens",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_organ",
+          "name": "Codi òrgan",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "nom_organ",
+          "name": "Nom òrgan",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_unitat",
+          "name": "Codi unitat",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "nom_unitat",
+          "name": "Nom unitat",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_ine10",
+          "name": "Codi INE10",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_dir3",
+          "name": "Codi DIR3",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_expedient",
+          "name": "Codi expedient",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "numero_lot",
+          "name": "Numero lot",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "descripcio_lot",
+          "name": "Descripció lot",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "tipus_actuacio_execucio",
+          "name": "Tipus actuació execució",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "denominacio_actuacio",
+          "name": "Denominació actuació",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "data",
+          "name": "Data",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_fi",
+          "name": "Data fi",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "import_sense_iva",
+          "name": "Import sense iva",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "identificacio",
+          "name": "Identificació",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "denominacio",
+          "name": "Denominació",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "observacions",
+          "name": "Observacions",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "url_json",
+          "name": "URL JSON",
+          "dataTypeName": "text"
+        }
+      ],
+      "missing": {
+        "data": 13,
+        "tipus_actuacio_execucio": 0,
+        "codi_expedient": 0,
+        "import_sense_iva": 23,
+        "numero_lot": 0
+      },
+      "expedients": 76,
+      "groups": [
+        {
+          "Name": "Altres",
+          "Count": 18
+        },
+        {
+          "Name": "Ampliació del termini d'execució",
+          "Count": 1
+        },
+        {
+          "Name": "Cessió",
+          "Count": 1
+        },
+        {
+          "Name": "Extinció",
+          "Count": 2
+        },
+        {
+          "Name": "Modificació (Objectiva)",
+          "Count": 12
+        },
+        {
+          "Name": "Pròrroga",
+          "Count": 94
+        }
+      ],
+      "date_range": []
+    },
+    {
+      "dataset": "hb6v-jcbf",
+      "url": "https://analisi.transparenciacatalunya.cat/resource/hb6v-jcbf.json?$where=id_organisme_contractant%3D%270805170005%27&$select=codi_expedient,numero_lot,exercici,procediment_adjudicacio,situaci_contractual&$limit=50000",
+      "count": 791,
+      "columns": [
+        {
+          "fieldName": "situaci_contractual",
+          "name": "Situació contractual",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "exercici",
+          "name": "Exercici",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "subjecte_ambit",
+          "name": "Àmbit organitzatiu",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "id_agrupacio_organisme",
+          "name": "Identificador agrupació organisme",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "agrupacio_organisme",
+          "name": "Agrupació organisme",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "id_organisme_contractant",
+          "name": "Identificador organisme contractant",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "organisme_contractant",
+          "name": "Organisme contractant",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "codi_expedient",
+          "name": "Codi de l’expedient",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "procediment_adjudicacio",
+          "name": "Procediment d’adjudicació",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "tipus_contracte",
+          "name": "Tipus de contracte",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "descripcio_expedient",
+          "name": "Descripció de l’expedient",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "numero_lot",
+          "name": "Número de lot",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "codi_cpv",
+          "name": "Codi CPV",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "adjudicatari",
+          "name": "Adjudicatari",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "import_adjudicacio",
+          "name": "Import d’adjudicació",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "data_adjudicacio",
+          "name": "Data d’adjudicació",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "contracte",
+          "name": "Descripció del lot",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "lot_desert",
+          "name": "Lot desert",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "dies_durada",
+          "name": "Durada dies",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "mesos_durada",
+          "name": "Durada mesos",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "anys_durada",
+          "name": "Durada anys",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "numero_prorroga",
+          "name": "Número de pròrroga",
+          "dataTypeName": "number"
+        },
+        {
+          "fieldName": "data_inici_prorroga",
+          "name": "Data inici pròrroga",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "data_fi_prorroga",
+          "name": "Data fi pròrroga",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "numero_modificacio",
+          "name": "Número de modificació",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "tipus_modificacio",
+          "name": "Tipus de modificació",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "import_modificacio",
+          "name": "Import de la modificació",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "data_aprovacio_modificacio",
+          "name": "Data aprovació modificació",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "anys_termini_modificacio",
+          "name": "Termini modificació anys",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "mesos_termini_modificacio",
+          "name": "Termini modificació mesos",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "dies_termini_modificacio",
+          "name": "Termini modificació dies",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "tipus_liquidacio",
+          "name": "Tipus de liquidació",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "data_liquidacio",
+          "name": "Data de liquidació",
+          "dataTypeName": "calendar_date"
+        },
+        {
+          "fieldName": "causa_resolucio",
+          "name": "Causa de resolució",
+          "dataTypeName": "text"
+        },
+        {
+          "fieldName": "import_liquidacio",
+          "name": "Import de la liquidació",
+          "dataTypeName": "text"
+        }
+      ],
+      "missing": {
+        "procediment_adjudicacio": 0,
+        "situaci_contractual": 0,
+        "codi_expedient": 0,
+        "exercici": 0,
+        "numero_lot": 0
+      },
+      "expedients": 630,
+      "groups": [
+        {
+          "Name": "2017",
+          "Count": 2
+        },
+        {
+          "Name": "2018",
+          "Count": 9
+        },
+        {
+          "Name": "2019",
+          "Count": 21
+        },
+        {
+          "Name": "2020",
+          "Count": 21
+        },
+        {
+          "Name": "2021",
+          "Count": 70
+        },
+        {
+          "Name": "2022",
+          "Count": 233
+        },
+        {
+          "Name": "2023",
+          "Count": 184
+        },
+        {
+          "Name": "2024",
+          "Count": 147
+        },
+        {
+          "Name": "2025",
+          "Count": 70
+        },
+        {
+          "Name": "2026",
+          "Count": 34
+        }
+      ],
+      "date_range": []
+    }
+  ],
+  "joins": {
+    "pscp_expedients_nonempty": 622,
+    "common_exact": 434,
+    "rpc_expedients_nonempty": 630,
+    "note": "Coincidència textual per òrgan i expedient, no reconciliació de lots ni imports"
+  },
+  "efact_nif_check": {
+    "url": "https://dadesobertes.seu-e.cat/api/3/action/datastore_search?resource_id=4d148e9b-ebed-477a-bfff-22bd3567dcd8&limit=0&filters=%7B%22NIF_RECEPTOR%22%3A%22P0805000G%22%7D",
+    "total": 0
+  },
+  "invoice_original_csv_dates": {
+    "DATA_FACTURA": {
+      "unparseable": 0,
+      "after_study_date": 0,
+      "min": "1923-07-19",
+      "max": "2026-03-23",
+      "before_2019": 12
+    },
+    "DATA_REGISTRE": {
+      "unparseable": 0,
+      "after_study_date": 0,
+      "min": "2019-01-01",
+      "max": "2026-04-07",
+      "before_2019": 0
+    }
+  },
+  "suppliers_original_csv_quality": {
+    "masked_cif": 1159,
+    "distinct_company_year": 5529,
+    "missing_cif": 19,
+    "rows": 5558
+  },
+  "pscp_date_bounds": {
+    "max_raw": "2026-12-09T00:00:00",
+    "assessment": "Data posterior al 13/10/2026; causa no verificada",
+    "min_raw": "2016-09-20T00:00:00",
+    "url": "https://analisi.transparenciacatalunya.cat/resource/ybgg-dgi6.json?$where=codi_organ%3D%273411306%27&$select=min(data_adjudicacio_contracte),max(data_adjudicacio_contracte)"
+  },
+  "licenses_observed": {
+    "factures": "cc-by",
+    "metadata_date": "2026-09-30",
+    "url": "https://dadesobertes.seu-e.cat/api/3/action/package_search?fq=organization%3Acastellardelvalles&rows=100",
+    "convenis": "notspecified",
+    "proveidors": "cc-by"
+  },
+  "cross_source_example": {
+    "session_url": "https://actes.castellarvalles.cat/session/sessionDetail/8a8180849d1882b2019d29b61c150051",
+    "pscp_url": "https://contractaciopublica.cat/ca/detall-publicacio/586d8996-d7c2-4049-9a0b-9dfc54679673/300373557",
+    "note": "Ordre del dia no equival a acord. Zero files no demostren inexistencia de modificacio.",
+    "expedient": "CONT2400054",
+    "execution_exact_query_rows": 0,
+    "pscp_lots": [
+      "1",
+      "2"
+    ]
+  }
+}

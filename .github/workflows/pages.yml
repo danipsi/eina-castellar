@@ -1,0 +1,101 @@
+name: Actualitza i publica l’Observatori
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 04.23 UTC: 05.23 a l’hivern i 06.23 a l’estiu a Catalunya.
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+    inputs:
+      actualitza:
+        description: Consulta les fonts abans de publicar
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: observatori-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pages: read
+    outputs:
+      capture_failed: ${{ steps.capture.outcome == 'failure' }}
+    steps:
+      - name: Recupera el projecte i l’última captura
+        uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Prepara Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Prepara Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Instal·la les dependències
+        run: npm ci
+      - name: Comprova el capturador
+        run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Configura GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Consulta les fonts
+        id: capture
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.actualitza)
+        continue-on-error: true
+        timeout-minutes: 30
+        run: python scripts/ingest.py
+      - name: Registra una captura interrompuda
+        if: steps.capture.outcome == 'failure'
+        run: python scripts/pages_status.py
+      - name: Genera el web a l’adreça del repositori
+        env:
+          PAGES_BASE: ${{ steps.pages.outputs.base_path }}/
+        run: npm run build -- --base "$PAGES_BASE"
+      - name: Conserva les captures publicables a GitHub
+        env:
+          CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- public/data/catalog.json public/data/status.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Actualitza la captura municipal ($CAPTURE_OUTCOME)"
+            git push origin HEAD:main
+          fi
+      - name: Prepara només el web públic
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publica el web
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Assenyala la fallada sense retirar el web
+        if: needs.build.outputs.capture_failed == 'true'
+        run: |
+          echo '::error::La captura ha fallat. El web conserva el catàleg anterior i mostra l’avís. Revisa la captura i torna a executar el flux.'
+          exit 1

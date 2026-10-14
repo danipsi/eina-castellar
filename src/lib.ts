@@ -1,0 +1,60 @@
+import MiniSearch from 'minisearch';
+import type {BudgetRow, Catalog, Contract, Dossier, Evidence, Selection} from './types';
+
+const euros = new Intl.NumberFormat('ca-ES', {style: 'currency', currency: 'EUR', minimumFractionDigits: 2});
+export const money = (cents: number | null) => cents === null ? 'No informat' : euros.format(cents / 100);
+export const compactMoney = (cents: number | null) => cents === null ? '—' : new Intl.NumberFormat('ca-ES', {maximumFractionDigits: 2}).format(cents / 100000000) + ' M€';
+export const number = (n: number) => new Intl.NumberFormat('ca-ES').format(n);
+export const date = (s: string | null) => s && !Number.isNaN(Date.parse(s)) ? new Intl.DateTimeFormat('ca-ES', {day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}).format(new Date(s)) : 'Data no informada';
+export const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('ca').trim();
+export const expKey = (s: string) => s.trim().toUpperCase();
+export const safeUrl = (s: string) => {try {const u = new URL(s); return ['https:', 'http:'].includes(u.protocol) ? u.href : '#';} catch {return '#';}};
+export const budgetTotal = (rows: BudgetRow[], field: 'initialCents' | 'finalCents' | 'executedCents') => rows.length && rows.every(r => r[field] !== null) ? rows.reduce((sum, r) => sum + r[field]!, 0) : null;
+export const ratio = (executed: number | null, total: number | null) => executed !== null && total !== null && total > 0 ? executed / total * 100 : null;
+export const pct = (n: number | null) => n === null ? 'No calculable' : new Intl.NumberFormat('ca-ES', {maximumFractionDigits: 1}).format(n) + '%';
+
+export function makeSearch(data: Catalog) {
+  const index = new MiniSearch({fields: ['title', 'expedient', 'text'], storeFields: ['kind', 'itemId'], processTerm: t => normalize(t), searchOptions: {prefix: true, fuzzy: 0.15, boost: {expedient: 4, title: 2}, combineWith: 'AND'}});
+  index.addAll([
+    ...data.contracts.map(c => ({id: 'contract:' + c.id, itemId: c.id, kind: 'contract', title: c.title, expedient: c.expedient, text: `${c.supplier ?? ''} ${c.procedure} ${c.type}`})),
+    ...data.sessions.map(s => ({id: 'session:' + s.id, itemId: s.id, kind: 'session', title: s.title, expedient: s.agenda.flatMap(a => a.expedients).join(' '), text: s.agenda.map(a => a.title).join(' ')})),
+  ]);
+  return index;
+}
+export function evidenceFor(selection: Selection): Evidence {
+  const {item, kind} = selection;
+  if (kind === 'contract') {
+    const c = selection.item;
+    return {id: `${kind}:${c.id}`, kind, title: c.title, url: c.url, source: c.source, capturedAt: c.capturedAt, locator: `Expedient ${c.expedient}${c.lot ? ` · lot ${c.lot}` : ''} · registre ${c.id}`};
+  }
+  if (kind === 'budget') {
+    const b = selection.item;
+    return {id: `${kind}:${b.id}`, kind, title: `${b.year} · ${b.chapterName}`, url: b.url, source: 'Pressupost i liquidació · AOC', capturedAt: b.capturedAt, locator: `${b.side} · capítol ${b.chapter} · registre ${b.id}`};
+  }
+  return {id: `${kind}:${item.id}`, kind, title: selection.item.title, url: item.url, source: 'Portal de sessions municipal', capturedAt: item.capturedAt, locator: `Sessió ${selection.item.title} · ${selection.item.date} · registre ${item.id}`};
+}
+export function download(name: string, content: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], {type}));
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+export function csv(rows: unknown[][]) {
+  return '\ufeff' + rows.map(row => row.map(value => {
+    let s = value === null || value === undefined ? '' : String(value);
+    if (/^[\s]*[=+@-]/.test(s)) s = "'" + s;
+    return '"' + s.replaceAll('"', '""') + '"';
+  }).join(';')).join('\r\n');
+}
+export function exportContracts(rows: Contract[]) {
+  download('contractacio-filtrada.csv', csv([
+    ['Font', 'Expedient', 'Lot', 'Títol', 'Any', 'Procediment', 'Import EUR', 'IVA', 'Data', 'URL', 'Captura', 'Registre', 'Avisos'],
+    ...rows.map(c => [c.source, c.expedient, c.lot, c.title, c.year, c.procedure, c.amountCents === null ? null : (c.amountCents / 100).toFixed(2).replace('.', ','), c.vat, c.date, c.url, c.capturedAt, c.id, c.flags.join(' | ')])
+  ]), 'text/csv;charset=utf-8');
+}
+export function dossierMarkdown(d: Dossier) {
+  const escape = (s: string) => s.replace(/[\\`*_{}\[\]<>#]/g, '\\$&');
+  return `# ${escape(d.title)}\n\nDossier personal · exportat el ${date(new Date().toISOString())}\n\n## Fonts\n\n` +
+    d.evidence.map((e, i) => `${i + 1}. ${escape(e.title)}\n   - Font: ${escape(e.source)}\n   - Original: <${safeUrl(e.url)}>\n   - Localitzador: ${escape(e.locator)}\n   - Captura: ${e.capturedAt}`).join('\n\n') +
+    '\n\n## Notes personals\n\n' + d.notes.map(n => `### ${n.kind} · ${n.status}\n\n${escape(n.text)}`).join('\n\n') +
+    '\n\nLes notes i hipòtesis són personals. Una menció en un ordre del dia no acredita l’aprovació d’un acord.\n';
+}

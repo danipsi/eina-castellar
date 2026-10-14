@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dades/
+test-results/
+playwright-report/
+__pycache__/
+*.pyc
+*.tsbuildinfo
+observatori-netlify.zip
+.env*
+!.env.example
+observatori-castellar/

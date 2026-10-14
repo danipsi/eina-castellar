@@ -1,0 +1,71 @@
+# Observatori de Castellar
+
+MVP funcional d’exploració municipal, en català i amb estètica de tauler sobri. Construït el 13/10/2026. Consulta estàtica, cerca local i dossiers privats al navegador. Compatible amb Netlify i altres servidors estàtics.
+
+**Per començar sense terminal:** doble clic a `Obre-observatori.cmd`. [Guia d’ús i publicació](./GUIA-D-US.md).
+
+**GitHub gratuït:** [guia de GitHub Pages](./GUIA-GITHUB.md). Inclou un flux preparat de publicació i captura diària; s’activarà quan pugis el repositori públic i configuris Pages.
+
+## Funcions
+
+- Contractació PSCP/RPC separada, filtres, ordenació i CSV equivalent als filtres.
+- Cerca MiniSearch per tema i expedient, fitxes amb lots, fonts i cronologia per codi exacte.
+- Pressupostos 2022–2026 i liquidacions 2022–2025 per capítol econòmic, gràfics i taules amb imports en cèntims.
+- Catàleg Ple/JGL i punts indexats dels plens amb filtre preventiu de privacitat.
+- Dossiers IndexedDB amb notes, preguntes, hipòtesis, estat de revisió, còpia JSON, Markdown i impressió.
+- Fonts, cobertura, qualitat i canvis de registres entre captures.
+
+## Ordres
+
+```powershell
+npm ci
+npm run dev -- --port 4173
+npm run build
+npm run preview -- --port 4174
+```
+
+`npm run build` genera **dist**, l’única carpeta que s’ha de publicar. `netlify.toml` configura ordre de build, Node.js 24, carpeta i capçaleres. No hi ha secrets ni consultes obligatòries a portals externs durant la consulta web. Les fonts tipogràfiques se serveixen localment.
+
+```powershell
+py -3.13 scripts/ingest.py
+py -3.13 -m unittest discover -s tests -p test_ingest.py
+npm test
+npm run test:pages
+```
+
+Les proves de navegador utilitzen Microsoft Edge instal·lat i el port 4173. En un altre sistema es pot canviar `channel` a `playwright.config.ts` i instal·lar el navegador de Playwright. Simulació de fallada: `py -3.13 scripts/ingest.py --simulate-failure`; genera l’avís i conserva el catàleg. Una captura correcta elimina l’avís.
+
+## Estructura
+
+| Ubicació | Contingut |
+|---|---|
+| `src/` | React, TypeScript, cerca, càlculs, dossiers i estils |
+| `public/data/catalog.json` | Captura normalitzada publicable inclosa al build |
+| `public/data/status.json` | Resultat de la darrera actualització |
+| `scripts/ingest.py` | Adaptadors Python stdlib, validació i publicació atòmica |
+| `dades/observatori.sqlite` | Versions normalitzades excloses del web i de Git |
+| `dades/staging/` | Preparació privada; no entra al build |
+| `tests/` | Proves de dades i fluxos de navegador |
+| `GUIA-D-US.md` | Instruccions d’ús sense coneixements de programació |
+| `VERIFICACIO.md` | Evidències i límits de la versió |
+
+## Criteris que es preserven
+
+No sumar PSCP i RPC; no sumar jerarquies pressupostàries; imports desconeguts diferents de zero; IVA explícit. Les dates futures s’avisen sense corregir-les per intuïció. Les mencions d’ordre del dia no són acords verificats. No s’exporten NIF personals ni es reconstrueixen identitats ocultes. Les notes personals no surten del navegador llevat d’exportació explícita.
+
+La captura té paginació contrastada, reintents, validació territorial, bloqueig d’un únic escriptor i substitució atòmica. Un error conserva l’últim catàleg. SQLite guarda versions per hash del registre normalitzat, excloent la data de captura; una captura igual no genera versions ni novetats materials. Els documents originals es referencien: no s’arxiven ni es versionen tots els seus binaris.
+
+Si Windows bloqueja una substitució, tanca la previsualització i repeteix l’actualització. Després d’una captura correcta cal recarregar el navegador; la vigilància de fitxers ignora les dades per evitar bloquejos.
+
+Flux de GitHub Actions preparat a `.github/workflows/pages.yml`, amb captura diària a les 04.23 UTC, publicació a Pages i historial de captures JSON a Git. Encara no hi ha repositori remot ni desplegament públic activats. Cal concretar responsable i condicions abans de publicar a tercers. El filtre preventiu de textos no substitueix una revisió de privacitat. Consulta els límits detallats a la guia.
+
+## Recerca de partida
+
+Es conserven els documents de la fase prèvia sense reescriure’n les conclusions històriques:
+
+1. [Estudi de viabilitat i especificació](./ESTUDI-DE-VIABILITAT.md).
+2. [Mapa de 35 fonts o famílies de fonts](./MAPA-DE-FONTS.md).
+3. [Evidència agregada de l’auditoria inicial](./recerca/auditoria-api.json).
+4. [Script de la ronda base d’auditoria](./recerca/audita-fonts.ps1).
+
+Factures/proveïdors, IA, OCR, col·laboració i notificacions externes queden fora d’aquest MVP.

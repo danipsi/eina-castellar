@@ -140,3 +140,12 @@ Verificació executada: 29 escenaris de navegador (2 de nous a `tests/browser/co
 - **Referència temporal:** la data d’avui a Europa/Madrid, com la resta de l’eina.
 
 Verificació executada: 31 escenaris de navegador (2 de nous a `tests/browser/venciments.spec.ts`, amb contractes, fites i data inventats) i 2 de producció; 1 prova nova de la captura (lectura de durades). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil.
+
+## Proveïdors i facturació · 15/10/2026
+
+- **Captura:** `scripts/ingest.py` llegeix el registre de factures (28.552 files, 2019–2026) i la relació anual de proveïdors (5.558 files) del CKAN de l’AOC, i en publica només els exercicis del període. La relació de proveïdors és la suma de les factures per emissor i exercici: els totals quadren al cèntim i, si no quadressin, la font es marca com a parcial.
+- **Privacitat:** el tipus d’emissor es dedueix de la lletra inicial del NIF de la relació de proveïdors, que no es publica. Només surten amb nom les societats (A, B), cooperatives (F), UTE (U), entitats (G, R), administracions (P, Q, S) i altres persones jurídiques (N, V, W). Persones físiques (NIF emmascarat), societats civils i comunitats de béns (que poden dur noms de persones) i noms sense tipus clar s’agreguen en una fila anual sense nom. Captura del 15/10/2026: 2.578 files amb nom i 5 sense; el 2025, 577 emissors amb nom (97 % de l’import) i 182 sense.
+- **Patró:** emissor amb nom, que no és una administració, amb facturació anual ≥ 18.150 € i cap contracte del catàleg (qualsevol exercici i font) amb el mateix nom normalitzat (`src/supplierData.ts`). El 2025: 74 emissors per sobre del llindar, 20 sense contracte trobat. Es mostra sempre com «no s’ha trobat contracte amb aquest nom».
+- **Dates:** les dates de factura a més d’un any de l’exercici (n’hi ha del 1923) queden sense data; l’import es manté.
+
+Verificació executada: 37 escenaris de navegador (3 de nous a `tests/browser/proveidors.spec.ts`, amb dades inventades) i 2 de producció; 2 proves noves de la captura (privacitat i conciliació; secció nova resumida com a captura inicial). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil, sense desplaçament horitzontal.

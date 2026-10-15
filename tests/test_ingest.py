@@ -62,6 +62,43 @@ class IngestTest(unittest.TestCase):
         self.assertEqual(m.rpc_duration({'anys_durada': '1', 'mesos_durada': '0', 'dies_durada': '1'}), 'P1Y1D')
         self.assertIsNone(m.rpc_duration({'anys_durada': '0', 'mesos_durada': '0', 'dies_durada': '0'}))
 
+    def test_suppliers_publish_only_legal_entities(self):
+        # Dades inventades: NIF i noms no corresponen a cap persona ni empresa real.
+        providers = [
+            {'EXERCICI': 2024, 'NOM_EMPRESA': 'EMPRESA ALFA SL', 'CIF_EMPRESA': 'B12345678', 'IMPORT': '1.200,50 €'},
+            {'EXERCICI': 2024, 'NOM_EMPRESA': 'AJUNTAMENT VEÍ', 'CIF_EMPRESA': 'P0800000A', 'IMPORT': '50,00 €'},
+            {'EXERCICI': 2024, 'NOM_EMPRESA': 'PERSONA INVENTADA', 'CIF_EMPRESA': '***1234**', 'IMPORT': '30,00 €'},
+            {'EXERCICI': 2024, 'NOM_EMPRESA': 'COGNOM I COGNOM SCP', 'CIF_EMPRESA': 'J12345678', 'IMPORT': '20,00 €'},
+            {'EXERCICI': 2019, 'NOM_EMPRESA': 'EMPRESA ALFA SL', 'CIF_EMPRESA': 'B12345678', 'IMPORT': '10,00 €'},
+        ]
+        invoice = lambda name, amount, day='2024-03-01T00:00:00', year=2024: {'EXERCICI': year, 'NOM_EMISSOR': name, 'IMPORT_FACTURA': amount, 'DATA_FACTURA': day, 'NUM_FACTURA': 'F1'}
+        invoices = [invoice('EMPRESA ALFA SL', '1.000,00 €'), invoice('EMPRESA ALFA SL', '200,50 €', '1923-07-19T00:00:00'), invoice('AJUNTAMENT VEÍ', '50,00 €'), invoice('PERSONA INVENTADA', '30,00 €'), invoice('COGNOM I COGNOM SCP', '20,00 €'), invoice('EMPRESA ALFA SL', '10,00 €', year=2019)]
+        rows, reconciled = m.normalize_suppliers(invoices, providers, '2026-10-15')
+        self.assertTrue(reconciled)
+        by_name = {r['name']: r for r in rows}
+        self.assertEqual(set(by_name), {'EMPRESA ALFA SL', 'AJUNTAMENT VEÍ', None})
+        alfa = by_name['EMPRESA ALFA SL']
+        self.assertEqual((alfa['category'], alfa['invoices'], alfa['invoicedCents'], alfa['maxInvoiceCents'], alfa['firstDate'], alfa['lastDate']), ('societat', 2, 120050, 100000, '2024-03-01', '2024-03-01'))
+        self.assertEqual(by_name['AJUNTAMENT VEÍ']['category'], 'administració o ens públic')
+        others = by_name[None]
+        self.assertEqual((others['category'], others['emitters'], others['invoicedCents'], others['url']), (m.UNNAMED, 2, 5000, m.INVOICES_DATASET))
+        published = json.dumps(rows, ensure_ascii=False)
+        for hidden in ['PERSONA INVENTADA', 'COGNOM', 'B12345678', '1234']:
+            self.assertNotIn(hidden, published)
+        self.assertNotIn(2019, {r['year'] for r in rows})
+        _, reconciled = m.normalize_suppliers(invoices[1:], providers, '2026-10-15')
+        self.assertFalse(reconciled)
+
+    def test_new_section_is_summarised_once(self):
+        data = self.catalog()
+        with self.temporary_root() as d:
+            root = Path(d); m.publish(copy.deepcopy(data), root)
+            data['generatedAt'] = '2026-10-14'
+            data['suppliers'] = [self.record(f'supplier-{i}', invoicedCents=100) for i in range(3)]
+            self.assertEqual(m.publish(copy.deepcopy(data), root), 1)
+            changes = json.loads((root / 'public/data/catalog.json').read_text(encoding='utf-8'))['changes']
+            self.assertEqual(changes, [{'date': '2026-10-14', 'source': 'suppliers', 'kind': 'nous', 'description': '3 registres nous (captura inicial).'}])
+
     def test_new_schema_field_is_not_a_change(self):
         data = self.catalog()
         with self.temporary_root() as d:

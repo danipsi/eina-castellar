@@ -55,9 +55,16 @@ CKAN = 'https://dadesobertes.seu-e.cat/api/3/action/datastore_search?'
 ACTES = 'https://actes.castellarvalles.cat'
 BUDGET_ID = '595f8620-7a3c-4e38-8be2-7cffa744cd44'
 LIQ_ID = '81f18313-547f-4c87-adbd-c6ce873cb406'
+INVOICES_ID = '2e86b79d-b79d-4ae0-9f87-1a56f1c49a4f'
+PROVIDERS_ID = 'b8c6a773-1cf2-4592-a9a2-92f30a645985'
+INVOICES_DATASET = 'https://dadesobertes.seu-e.cat/dataset/castellardelvalles-factures'
+# Tipus d'emissor segons la lletra inicial del NIF, que no es publica. Només es mostren noms de persones
+# jurídiques amb denominació pròpia: societats civils i comunitats de béns poden dur noms de persones.
+NIF_CATEGORIES = {**dict.fromkeys('AB', 'societat'), 'F': 'cooperativa', 'U': 'UTE', **dict.fromkeys('GR', 'entitat'), **dict.fromkeys('PQS', 'administració o ens públic'), **dict.fromkeys('NVW', 'altres persones jurídiques')}
+UNNAMED = 'sense nom publicat'
 PRIVATE = re.compile(r'\b(?:\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', re.I)
 SENSITIVE = re.compile(r'assetjament|discapaci|dependència|vulnerab|violència|ajut.{0,20}(?:social|urgència)|expedient.{0,20}disciplin|dades personals|menors d.edat|servei.{0,20}psico', re.I)
-SECTIONS = ('contracts', 'events', 'budget', 'sessions')
+SECTIONS = ('contracts', 'events', 'budget', 'sessions', 'suppliers')
 CHANGE_KINDS = {'nous', 'modificats', 'no observats'}
 
 def stamp():
@@ -245,6 +252,46 @@ def normalize_budget(initial, liquidation, capture, period=PERIOD):
     for row in output.values(): row['url'] = row['liquidationUrl'] if row['finalCents'] is not None or row['executedCents'] is not None else row['initialUrl']
     return sorted(output.values(), key=lambda r: r['id'])
 
+def nif_category(value):
+    s = str(value or '').strip().upper()
+    return NIF_CATEGORIES.get(s[:1]) if re.fullmatch(r'[A-Z]\d{7}[0-9A-J]', s) else None
+
+def invoice_date(value, year):
+    # Hi ha dates de factura impossibles (p. ex. 1923): fora de l'exercici ±1 queden sense data.
+    try: d = iso(value)
+    except ValueError: return None
+    return d if d and abs(int(d[:4]) - year) <= 1 else None
+
+def normalize_suppliers(invoices, providers, capture, period=PERIOD):
+    """Factures agregades per emissor i exercici. Retorna (registres, quadra amb la relació de proveïdors)."""
+    years = period_years(period)
+    kinds, listed = {}, Counter()
+    for r in providers:
+        year, raw = int(r['EXERCICI']), str(r['NOM_EMPRESA'] or '').strip()
+        kinds.setdefault((year, raw), set()).add(nif_category(r['CIF_EMPRESA']))
+        if year in years: listed[year] += cents(r['IMPORT']) or 0
+    groups = {}
+    for r in invoices:
+        year, raw = int(r['EXERCICI']), str(r['NOM_EMISSOR'] or '').strip()
+        if year not in years: continue
+        found = kinds.get((year, raw), set())
+        category = next(iter(found)) if len(found) == 1 else None
+        if not raw or PRIVATE.search(raw): category = None
+        key = (year, raw if category else None)
+        g = groups.setdefault(key, {'category': category, 'names': set(), 'invoices': 0, 'invoicedCents': 0, 'maxInvoiceCents': 0, 'dates': []})
+        amount = cents(r['IMPORT_FACTURA'])
+        if amount is None: raise ValueError('Factura sense import')
+        g['names'].add(raw); g['invoices'] += 1; g['invoicedCents'] += amount; g['maxInvoiceCents'] = max(g['maxInvoiceCents'], amount)
+        d = invoice_date(r.get('DATA_FACTURA'), year)
+        if d: g['dates'].append(d)
+    records, invoiced = [], Counter()
+    for (year, raw), g in groups.items():
+        invoiced[year] += g['invoicedCents']
+        named = raw is not None
+        url = CKAN + urllib.parse.urlencode({'resource_id': INVOICES_ID, 'filters': json.dumps({'EXERCICI': year, 'NOM_EMISSOR': raw}, ensure_ascii=False), 'limit': 500}) if named else INVOICES_DATASET
+        records.append({'id': f'supplier-{year}-' + (stable(raw) if named else 'altres'), 'year': year, 'name': clean(raw) if named else None, 'category': g['category'] if named else UNNAMED, 'emitters': len(g['names']), 'invoices': g['invoices'], 'invoicedCents': g['invoicedCents'], 'maxInvoiceCents': g['maxInvoiceCents'], 'firstDate': min(g['dates'], default=None), 'lastDate': max(g['dates'], default=None), 'url': url, 'capturedAt': capture})
+    return sorted(records, key=lambda r: r['id']), all(invoiced[y] == listed[y] for y in invoiced | listed)
+
 def parse_session_list(text, capture, body, period=PERIOD):
     pattern = r'<div class="title" title="([^"]+)"[^>]*>([\s\S]*?)href="(https://actes\.castellarvalles\.cat/session/sessionDetail/[a-f0-9]+)"'
     records = []
@@ -323,6 +370,7 @@ def collect(period=PERIOD):
         'rpc': lambda: socrata('hb6v-jcbf', "id_organisme_contractant='0805170005'", 'id_organisme_contractant,codi_expedient,numero_lot,exercici,descripcio_expedient,contracte,procediment_adjudicacio,tipus_contracte,situaci_contractual,adjudicatari,import_adjudicacio,data_adjudicacio,codi_cpv,anys_durada,mesos_durada,dies_durada'),
         'events': lambda: socrata('8idu-wkjv', "codi_organ='3411306'", 'codi_organ,codi_expedient,numero_lot,tipus_actuacio_execucio,denominacio_actuacio,data,import_sense_iva,url_json'),
         'initial': lambda: ckan(BUDGET_ID), 'liq': lambda: ckan(LIQ_ID),
+        'invoices': lambda: ckan(INVOICES_ID), 'providers': lambda: ckan(PROVIDERS_ID),
     }
     with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {name: pool.submit(job) for name, job in jobs.items()}
@@ -332,6 +380,8 @@ def collect(period=PERIOD):
     events = normalize_events(raw['events'], capture, {c['expedient'] for c in contracts}, period)
     budget = normalize_budget(raw['initial'], raw['liq'], capture, period)
     sessions = collect_sessions(capture, period)
+    suppliers, reconciled = normalize_suppliers(raw['invoices'], raw['providers'], capture, period)
+    named = sum(1 for s in suppliers if s['name'])
     counts = Counter(c['source'] for c in contracts)
     full_period = period_label(period)
     liquidation_period = period_label(period, liquidation=True)
@@ -342,13 +392,14 @@ def collect(period=PERIOD):
         source('events', 'Execució contractual · PSCP', 'https://analisi.transparenciacatalunya.cat/d/8idu-wkjv', len(events), f'Fites {full_period} i fites d’expedients inclosos en el catàleg.', 'Relació per codi exacte d’expedient; lot conservat. La falta de fites no acredita la inexistència de modificacions o pròrrogues.', capture),
         source('budget', 'Pressupost i liquidació · AOC', 'https://dadesobertes.seu-e.cat/dataset/liquidacio-del-pressupost-execucio-per-capitols', len(budget), f'Pressupost inicial {full_period}; liquidacions {liquidation_period}.', 'Classificació econòmica, nivell 1. La captura inicial exigeix els capítols 1–9 per any i costat. Els imports nuls i els capítols absents de la liquidació queden sense import, no a zero. Font Generalitat/AOC; atribució indicada als registres.', capture, 'partial' if budget_partial else 'ok'),
         source('sessions', 'Portal municipal d’àudio vídeo actes', ACTES + '/session/portadaPublica', len(sessions), f'Catàleg de plens i juntes {full_period}. Índex contrastat amb consultes anuals.', 'Només punts dels plens que superen el filtre preventiu; JGL només metadades i enllaç. No transcriu vídeos ni acredita votacions. Els ordres del dia tenen cobertura parcial per privacitat i estructura del portal. Documents originals subjectes a les condicions municipals.', capture, 'partial'),
+        source('suppliers', 'Registre de factures i relació de proveïdors', INVOICES_DATASET, named, f'Factures registrades {full_period} · exercici que informa la font; l’any en curs és parcial.', 'Factures agregades per emissor i exercici, amb IVA tal com consten. Només es publiquen noms de persones jurídiques amb denominació pròpia (tipus deduït de la lletra del NIF, que no es publica); persones físiques, societats civils i comunitats de béns s’agreguen per exercici sense nom. ' + ('Els totals per exercici quadren amb la relació anual de proveïdors.' if reconciled else 'Els totals per exercici no quadren amb la relació anual de proveïdors: consulta les fonts originals.') + ' Registrar una factura no acredita el pagament. Font Ajuntament/AOC; llicència cc-by.', capture, 'ok' if reconciled else 'partial'),
     ]
-    return {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'sources': sources, 'changes': []}
+    return {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'suppliers': suppliers, 'sources': sources, 'changes': []}
 
 def safe_change_value(field, value):
     if field.endswith('Cents'):
         return value is None or (isinstance(value, int) and not isinstance(value, bool) and abs(value) <= 2**53)
-    if field == 'year':
+    if field in ('year', 'invoices', 'emitters'):
         return value is None or (isinstance(value, int) and not isinstance(value, bool))
     if field == 'date':
         if value is None: return True
@@ -373,7 +424,7 @@ def changed_fields(before, after):
     return fields
 
 def validate_changes(catalog):
-    current_ids = {section: {r['id'] for r in catalog[section]} for section in SECTIONS}
+    current_ids = {section: {r['id'] for r in catalog.get(section, [])} for section in SECTIONS}
     if not isinstance(catalog.get('changes'), list): raise ValueError('Historial de canvis invàlid')
     for change in catalog['changes']:
         # Compatibilitat de lectura amb el marcador mínim anterior a schemaVersion 1.
@@ -407,7 +458,7 @@ def validate(catalog):
     if 'schemaVersion' in catalog and catalog['schemaVersion'] != 1: raise ValueError('Versió d’esquema invàlida')
     for section in SECTIONS:
         ids = set()
-        for r in catalog[section]:
+        for r in catalog.get(section, []):
             if not r['url'].startswith('https://') or not r['capturedAt'] or r['id'] in ids: raise ValueError('Traçabilitat o identitat invàlida')
             ids.add(r['id'])
             for k,v in r.items():
@@ -442,9 +493,10 @@ def publish(catalog, root=ROOT):
     previous = json.loads(path.read_text(encoding='utf-8')) if path.exists() else None
     differences = []
     for section in SECTIONS:
-        old = {r['id']: r for r in previous[section]} if previous else {}
-        now = {r['id']: r for r in catalog[section]}
-        if previous is None:
+        old = {r['id']: r for r in previous.get(section, [])} if previous else {}
+        now = {r['id']: r for r in catalog.get(section, [])}
+        # Una secció nova es resumeix com una captura inicial, no registre a registre.
+        if previous is None or section not in previous:
             if now:
                 differences.append({'date': catalog['generatedAt'], 'source': section, 'kind': 'nous', 'description': f'{len(now)} registres nous (captura inicial).'})
             continue
@@ -465,12 +517,12 @@ def publish(catalog, root=ROOT):
         db.execute('CREATE TABLE IF NOT EXISTS versions (kind TEXT,id TEXT,hash TEXT,payload TEXT,captured_at TEXT,PRIMARY KEY(kind,id,hash))')
         db.execute('CREATE TABLE IF NOT EXISTS releases (captured_at TEXT PRIMARY KEY,hash TEXT,records INTEGER)')
         for section in SECTIONS:
-            now = {r['id']: r for r in catalog[section]}
+            now = {r['id']: r for r in catalog.get(section, [])}
             for key, record in now.items():
                 content = payload(record); digest = hashlib.sha256(content.encode()).hexdigest()
                 db.execute('INSERT OR IGNORE INTO versions VALUES (?,?,?,?,?)', (section,key,digest,content,catalog['generatedAt']))
         digest = hashlib.sha256(json.dumps(catalog, sort_keys=True).encode()).hexdigest()
-        db.execute('INSERT OR REPLACE INTO releases VALUES (?,?,?)', (catalog['generatedAt'], digest, sum(len(catalog[x]) for x in SECTIONS)))
+        db.execute('INSERT OR REPLACE INTO releases VALUES (?,?,?)', (catalog['generatedAt'], digest, sum(len(catalog.get(x, [])) for x in SECTIONS)))
     # Una única substitució del catàleg: el lector veu tota la versió antiga o tota la nova.
     atomic_json(path, catalog)
     atomic_json(directory / 'status.json', {'status': 'ok', 'attemptedAt': catalog['generatedAt'], 'changes': len(differences), 'message': 'Captura completa i validada.'})
@@ -490,7 +542,7 @@ def main():
         if args.simulate_failure: raise RuntimeError('Fallada de prova')
         catalog = collect()
         changes = publish(catalog)
-        print(json.dumps({'status':'ok', 'counts': {k:len(catalog[k]) for k in ['contracts','events','budget','sessions']}, 'changes':changes}, ensure_ascii=False))
+        print(json.dumps({'status':'ok', 'counts': {k:len(catalog[k]) for k in SECTIONS}, 'changes':changes}, ensure_ascii=False))
         return 0
     except Exception as e:
         # No escriure contingut de les respostes ni dades personals al log.

@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {Activity, ArrowRight, ArrowUpRight, Bell, BookOpen, CalendarDays, Check, ChevronRight, Database, FileText, FolderOpen, Gavel, LayoutDashboard, Menu, Search, ShieldCheck, Wallet, X} from 'lucide-react';
+import {Activity, ArrowRight, ArrowUpRight, Bell, BookOpen, CalendarDays, Check, ChevronRight, Database, FileText, FolderOpen, Gavel, LayoutDashboard, Menu, Receipt, Search, ShieldCheck, Wallet, X} from 'lucide-react';
 import type {Catalog, Dossier, Evidence, Page, Selection} from './types';
 import {budgetTotal, compactMoney, date, evidenceFor, exactResults, isFutureDate, looksLikeExpedient, makeSearch, number, pct, ratio, today} from './lib';
 import {DossierConflict, readDossiers, removeDossier, writeDossier} from './storage';
@@ -12,8 +12,9 @@ import {Changes} from './Changes';
 import {PERIOD_LABEL} from './period';
 import {Investments} from './Investments';
 import {Motions, PendingMotions} from './Motions';
+import {Suppliers} from './Suppliers';
 
-const pages: {id: Page; label: string; icon: typeof Search}[] = [{id: 'overview', label: 'Visió general', icon: LayoutDashboard}, {id: 'contracts', label: 'Contractació', icon: FileText}, {id: 'budget', label: 'Pressupost', icon: Wallet}, {id: 'sessions', label: 'Sessions', icon: CalendarDays}, {id: 'motions', label: 'Mocions', icon: Gavel}, {id: 'dossiers', label: 'Dossiers', icon: FolderOpen}, {id: 'sources', label: 'Fonts i qualitat', icon: Database}];
+const pages: {id: Page; label: string; icon: typeof Search}[] = [{id: 'overview', label: 'Visió general', icon: LayoutDashboard}, {id: 'contracts', label: 'Contractació', icon: FileText}, {id: 'suppliers', label: 'Proveïdors', icon: Receipt}, {id: 'budget', label: 'Pressupost', icon: Wallet}, {id: 'sessions', label: 'Sessions', icon: CalendarDays}, {id: 'motions', label: 'Mocions', icon: Gavel}, {id: 'dossiers', label: 'Dossiers', icon: FolderOpen}, {id: 'sources', label: 'Fonts i qualitat', icon: Database}];
 
 export function App() {
   const [data, setData] = useState<Catalog | null>(null), [error, setError] = useState('');
@@ -69,6 +70,7 @@ export function App() {
           {route.params.has('record') && !selection && <div className="notice warning" role="status"><p>Aquest registre no està disponible en la captura actual. Pot haver estat retirat o l’enllaç pot ser incorrecte. <button className="text-button" onClick={() => updateRoute({record: null})}>Tanca l’avís</button></p></div>}
           {route.page === 'overview' && <Overview data={data} dossiers={dossiers} go={go} onSelect={selectRecord}/>}
           {route.page === 'contracts' && <Contracts data={data} onSelect={selectRecord}/>}
+          {route.page === 'suppliers' && <Suppliers data={data} onSelect={selectRecord}/>}
           {route.page === 'budget' && <Budget data={data} onSelect={selectRecord}/>}
           {route.page === 'sessions' && <Sessions data={data} onSelect={selectRecord}/>}
           {route.page === 'motions' && <Motions data={data} onSelect={selectRecord}/>}

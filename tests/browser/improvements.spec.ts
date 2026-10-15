@@ -137,6 +137,8 @@ test('novetats consultables amb abans/després, filtres i compatibilitat antiga'
   await expect(changes.getByRole('button', {name: 'Obre la fitxa'})).toHaveCount(0);
   await expect(changes).toContainText('No s’hi reprodueixen identificadors');
   await page.unroute('**/data/catalog.json');
+  // Format antic de les captures anteriors al detall per registre: només recomptes.
+  await page.route('**/data/catalog.json', route => route.fulfill({json: {...data, changes: [{date: '2026-10-13T18:29:20+00:00', source: 'sessions', kind: 'modificats', description: '13 registres modificats.'}]}}));
   await page.goto('/#sources');
   await page.reload();
   await expect(changes).toContainText('Aquesta captura només conserva recomptes');

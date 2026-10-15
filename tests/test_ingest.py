@@ -120,6 +120,36 @@ class IngestTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.normalize_agreements([row('CONV2400001', None, None), row('CONV2400001', None, None)], '2026-10-15')
 
+    def test_peers_group_population_and_amounts(self):
+        # Dades inventades amb l'estructura JSON-stat de l'Idescat i les files de l'AOC.
+        codes = ['080517', '089999', '250001', '170002']
+        values = [24933, 16000, 900, 40000, 25422, 14900, 950, 34000]
+        dataset = {'id': ['YEAR', 'MUN', 'SEX', 'CONCEPT'], 'size': [2, 4, 1, 1], 'value': values, 'dimension': {'YEAR': {'category': {'index': ['2022', '2025']}}, 'MUN': {'category': {'index': codes, 'label': dict(zip(codes, ['Castellar del Vallès', 'Poble Alfa', 'Poble Beta', 'Ciutat Gamma']))}}}}
+        period = {'startYear': 2022, 'endYear': 2026, 'latestLiquidationYear': 2025}
+        latest, group = m.peer_group(m.parse_population(dataset), period)
+        # El grup es fixa amb el padró més recent: Alfa en surt (14.900) i Gamma hi entra (34.000).
+        self.assertEqual((latest, sorted(group)), (2025, ['080517', '170002']))
+        self.assertEqual(group['080517']['population'], {'2022': 24933, '2025': 25422})
+        ens = m.ens_codes([{'CODI_ENS': 805170005, 'NOM_COMPLERT': 'Ajuntament de Castellar del Vallès'}, {'CODI_ENS': 1700020001, 'NOM_COMPLERT': 'Ajuntament de Ciutat Gamma'}, {'CODI_ENS': 1700020002, 'NOM_COMPLERT': 'Consorci de Ciutat Gamma'}], group)
+        self.assertEqual(ens, {'080517': '805170005', '170002': '1700020001'})
+        initial = [{'CODI_ENS': '805170005', 'ANY_EXERCICI': '2025', 'TIPUS_PARTIDA': 'D', 'CODI_PANTALLA': str(c), 'IMPORT': '100,00'} for c in range(1, 10)]
+        initial += [{'CODI_ENS': '1700020001', 'ANY_EXERCICI': '2025', 'TIPUS_PARTIDA': 'D', 'CODI_PANTALLA': str(c), 'IMPORT': '50,50'} for c in range(1, 5)]
+        liquidation = [{'CODI_ENS': 805170005, 'ANY_EXERCICI': 2025, 'TIPUS_PARTIDA': 'D', 'CODI_CAPITOL': c, 'IMPORT_PRESSU_FINAL': 120.5, 'IMPORT_LIQUIDAT': 90} for c in range(1, 10)]
+        peers = m.normalize_peers(group, ens, initial, liquidation, latest, '2026-10-15', period)
+        m.validate_peers(peers)
+        gamma = next(r for r in peers['rows'] if r['code'] == '170002')
+        # Un capítol no informat queda sense import, no a zero.
+        self.assertEqual(gamma['initialCents'], [5050] * 4 + [None] * 5)
+        self.assertEqual(gamma['executedCents'], [None] * 9)
+        own = next(r for r in peers['rows'] if r['code'] == '080517')
+        self.assertEqual((own['initialCents'][0], own['finalCents'][0], own['executedCents'][0]), (10000, 12050, 9000))
+        budget = [{'year': 2025, 'side': 'despeses', 'chapter': str(c), 'initialCents': 10000, 'finalCents': 12050, 'executedCents': 9000} for c in range(1, 10)]
+        m.check_peers(peers, budget)
+        budget[3]['executedCents'] = 9001
+        with self.assertRaises(ValueError): m.check_peers(peers, budget)
+        with self.assertRaises(ValueError): m.normalize_peers(group, ens, initial + initial[:1], [], latest, '2026-10-15', period)
+        with self.assertRaises(ValueError): m.peer_group({'089999': {'name': 'Poble Alfa', 'population': {'2025': 20000}}}, period)
+
     def test_new_section_is_summarised_once(self):
         data = self.catalog()
         with self.temporary_root() as d:

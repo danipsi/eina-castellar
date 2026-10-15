@@ -82,7 +82,7 @@ test('dossier local: evidència, nota, estat, persistència i còpia restaurada'
 test('pressupost reconciliat i mòbil sense desbordament', async ({page}) => {
   await page.goto('/#budget');
   await page.getByLabel('Exercici pressupostari').selectOption('2024');
-  const row = page.getByRole('row').filter({hasText:'Despeses de personal'});
+  const row = page.getByRole('table', {name:/Imports exactes de despeses/}).getByRole('row').filter({hasText:'Despeses de personal'});
   await expect(row).toContainText('12.653.822,61');
   await expect(row).toContainText('11.970.386,53');
   await page.screenshot({path:'test-results/pressupost.png',fullPage:true});

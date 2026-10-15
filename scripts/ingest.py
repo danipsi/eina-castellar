@@ -66,6 +66,11 @@ GRANTS_ID = '30798421-5952-4420-a769-d1121beb6534'
 GRANTS_DATASET = 'https://dadesobertes.seu-e.cat/dataset/cc-c-concessions-subvencions-i-ajuts-minhap'
 AGREEMENTS_ID = 'a2ca7c35-3afa-41f4-87e6-1d1645d0291a'
 AGREEMENTS_DATASET = 'https://dadesobertes.seu-e.cat/dataset/castellardelvalles-convenis-col-laboracio'
+POPULATION_URL = 'https://api.idescat.cat/taules/v2/pmh/446/477/mun'
+POPULATION_PAGE = 'https://www.idescat.cat/pub/?id=pmh'
+CKAN_SQL = 'https://dadesobertes.seu-e.cat/api/3/action/datastore_search_sql?'
+PEER_RANGE = (15000, 35000)
+SELF_CODE = '080517'
 PRIVATE = re.compile(r'\b(?:\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', re.I)
 SENSITIVE = re.compile(r'assetjament|discapaci|dependència|vulnerab|violència|ajut.{0,20}(?:social|urgència)|expedient.{0,20}disciplin|dades personals|menors d.edat|servei.{0,20}psico', re.I)
 SECTIONS = ('contracts', 'events', 'budget', 'sessions', 'suppliers', 'grants', 'agreements')
@@ -350,6 +355,88 @@ def normalize_agreements(rows, capture):
     if len({r['id'] for r in records}) != len(records): raise ValueError('Codi de conveni duplicat')
     return sorted(records, key=lambda r: r['id'])
 
+def parse_population(dataset):
+    # JSON-stat de l'Idescat: valors en ordre any → municipi (sexe i concepte tenen una sola categoria).
+    if dataset.get('id') != ['YEAR', 'MUN', 'SEX', 'CONCEPT'] or dataset['size'][2:] != [1, 1]: raise ValueError('Estructura de població inesperada')
+    years = dataset['dimension']['YEAR']['category']['index']; mun = dataset['dimension']['MUN']['category']
+    codes, values = mun['index'], dataset['value']
+    if len(values) != len(years) * len(codes): raise ValueError('Població incompleta')
+    population = {}
+    for i, year in enumerate(years):
+        for j, code in enumerate(codes):
+            value = values[i * len(codes) + j]
+            if value is not None: population.setdefault(code, {})[year] = int(value)
+    return {code: {'name': clean(mun['label'][code]), 'population': population.get(code, {})} for code in codes}
+
+def peer_group(municipalities, period=PERIOD):
+    # El grup es fixa amb el padró més recent; cada exercici es divideix per la població del seu any.
+    latest = max(year for m in municipalities.values() for year in m['population'])
+    group = {code: m for code, m in municipalities.items() if PEER_RANGE[0] <= m['population'].get(latest, -1) <= PEER_RANGE[1]}
+    if SELF_CODE not in group: raise ValueError('Castellar no és dins del grup de comparació')
+    years = {str(y) for y in range(period['startYear'], int(latest) + 1)}
+    return int(latest), {code: {'name': m['name'], 'population': {y: v for y, v in m['population'].items() if y in years}} for code, m in group.items()}
+
+def sql(query, fetch=get):
+    response = fetch(CKAN_SQL + urllib.parse.urlencode({'sql': query}))
+    if not response.get('success'): raise ValueError('Error declarat pel DataStore')
+    return response['result']['records']
+
+def ens_codes(rows, group):
+    # CODI_ENS = codi municipal de 6 xifres de l'Idescat + 4 xifres de tipus d'ens.
+    found = {}
+    for r in rows:
+        code = str(r['CODI_ENS']).zfill(10)[:6]
+        if code in group and str(r['NOM_COMPLERT']).startswith('Ajuntament'):
+            if code in found and found[code] != str(r['CODI_ENS']): raise ValueError('Ajuntament amb més d’un codi d’ens')
+            found[code] = str(r['CODI_ENS'])
+    if SELF_CODE not in found or found[SELF_CODE] != '805170005': raise ValueError('Codi d’ens de Castellar inesperat')
+    return found
+
+def normalize_peers(group, ens, initial, liquidation, latest, capture, period=PERIOD):
+    by_ens = {v: k for k, v in ens.items()}
+    rows = {}
+    def row(code, year, side):
+        return rows.setdefault((code, year, side), {'code': code, 'year': year, 'side': {'D': 'despeses', 'I': 'ingressos'}[side], 'initialCents': [None] * 9, 'finalCents': [None] * 9, 'executedCents': [None] * 9})
+    def place(target, field, chapter, value):
+        if target[field][chapter - 1] is not None: raise ValueError('Capítol duplicat en la comparació')
+        target[field][chapter - 1] = value
+    for r in initial:
+        year, side, chapter = int(r['ANY_EXERCICI']), str(r['TIPUS_PARTIDA']), int(r['CODI_PANTALLA'])
+        if side not in 'ID' or not 1 <= chapter <= 9 or year not in period_years(period): raise ValueError('Classificació inesperada en la comparació')
+        place(row(by_ens[str(r['CODI_ENS'])], year, side), 'initialCents', chapter, cents(r['IMPORT']))
+    for r in liquidation:
+        year, side, chapter = int(r['ANY_EXERCICI']), str(r['TIPUS_PARTIDA']), int(r['CODI_CAPITOL'])
+        if side not in 'ID' or not 1 <= chapter <= 9 or year not in period_years(period, liquidation=True): raise ValueError('Classificació inesperada en la comparació')
+        target = row(by_ens[str(r['CODI_ENS'])], year, side)
+        place(target, 'finalCents', chapter, cents(r['IMPORT_PRESSU_FINAL'])); place(target, 'executedCents', chapter, cents(r['IMPORT_LIQUIDAT']))
+    municipalities = [{'code': code, 'name': m['name'], 'population': m['population'], 'ens': ens.get(code)} for code, m in sorted(group.items(), key=lambda x: x[1]['name'])]
+    return {'capturedAt': capture, 'range': list(PEER_RANGE), 'populationYear': latest, 'self': SELF_CODE, 'populationUrl': POPULATION_PAGE, 'initialUrl': 'https://dadesobertes.seu-e.cat/dataset/ge-p-pressupostos-per-programes-detallat', 'liquidationUrl': 'https://dadesobertes.seu-e.cat/dataset/liquidacio-del-pressupost-execucio-per-capitols',
+            'municipalities': municipalities, 'rows': sorted(rows.values(), key=lambda r: (r['code'], r['year'], r['side']))}
+
+def collect_peers(capture, period=PERIOD, fetch=get):
+    # L'API limita les dades per consulta: primer els anys disponibles, després només els del període.
+    available = fetch(POPULATION_URL + '?lang=ca')['dimension']['YEAR']['category']['index']
+    years = [y for y in available if int(y) >= period['startYear']]
+    if not years: raise ValueError('Sense població per al període')
+    latest, group = peer_group(parse_population(fetch(POPULATION_URL + '/data?' + urllib.parse.urlencode({'lang': 'ca', 'SEX': 'TOTAL', 'YEAR': ','.join(years)}))), period)
+    ens = ens_codes(sql(f'SELECT DISTINCT "CODI_ENS","NOM_COMPLERT" FROM "{LIQ_ID}" WHERE "NOM_COMPLERT" LIKE \'Ajuntament%\'', fetch), group)
+    codes = ','.join(f"'{v}'" for v in sorted(ens.values()))
+    initial, liquidation = [], []
+    # Una consulta per exercici: cada resposta queda molt per sota del límit de files del DataStore.
+    for year in period_years(period):
+        initial += sql(f'SELECT "CODI_ENS","ANY_EXERCICI","TIPUS_PARTIDA","CODI_PANTALLA","IMPORT" FROM "{BUDGET_ID}" WHERE "ANY_EXERCICI"=\'{year}\' AND "NIVELL"=\'1\' AND "TIPUS_CLASSIF"=\'E\' AND "CODI_ENS" IN ({codes})', fetch)
+    for year in period_years(period, liquidation=True):
+        liquidation += sql(f'SELECT "CODI_ENS","ANY_EXERCICI","TIPUS_PARTIDA","CODI_CAPITOL","IMPORT_PRESSU_FINAL","IMPORT_LIQUIDAT" FROM "{LIQ_ID}" WHERE "ANY_EXERCICI"={year} AND "CODI_ENS" IN ({",".join(sorted(ens.values()))})', fetch)
+    return normalize_peers(group, ens, initial, liquidation, latest, capture, period)
+
+def check_peers(peers, budget):
+    # Les xifres de Castellar a la comparació han de coincidir amb les de la secció de pressupost.
+    own = {(r['year'], r['side']): r for r in peers['rows'] if r['code'] == SELF_CODE}
+    for b in budget:
+        r = own.get((b['year'], b['side']))
+        for field in ('initialCents', 'finalCents', 'executedCents'):
+            if (r[field][int(b['chapter']) - 1] if r else None) != b[field]: raise ValueError('La comparació no quadra amb el pressupost de Castellar')
+
 def parse_session_list(text, capture, body, period=PERIOD):
     pattern = r'<div class="title" title="([^"]+)"[^>]*>([\s\S]*?)href="(https://actes\.castellarvalles\.cat/session/sessionDetail/[a-f0-9]+)"'
     records = []
@@ -430,11 +517,12 @@ def collect(period=PERIOD):
         'initial': lambda: ckan(BUDGET_ID), 'liq': lambda: ckan(LIQ_ID),
         'invoices': lambda: ckan(INVOICES_ID), 'providers': lambda: ckan(PROVIDERS_ID),
         'grants': lambda: ckan(GRANTS_ID), 'agreements': lambda: ckan(AGREEMENTS_ID),
+        'peers': lambda: optional(lambda: collect_peers(capture, period)),
     }
     with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {name: pool.submit(job) for name, job in jobs.items()}
         raw = {name: future.result() for name, future in futures.items()}
-    print('APIs completades: ' + ', '.join(f'{k}={len(v)}' for k,v in raw.items()), flush=True)
+    print('APIs completades: ' + ', '.join(f'{k}={len(v) if v is not None else "error"}' for k,v in raw.items()), flush=True)
     contracts = normalize_contracts(raw['pscp'], raw['rpc'], capture, period)
     events = normalize_events(raw['events'], capture, {c['expedient'] for c in contracts}, period)
     budget = normalize_budget(raw['initial'], raw['liq'], capture, period)
@@ -443,6 +531,11 @@ def collect(period=PERIOD):
     named = sum(1 for s in suppliers if s['name'])
     grants, repeated_grants = normalize_grants(raw['grants'], capture, period)
     agreements = normalize_agreements(raw['agreements'], capture)
+    peers = raw['peers']
+    if peers is not None and optional(lambda: check_peers(peers, budget) or True) is None: peers = None
+    # La comparació és complementària: si falla, es conserva la de la captura anterior i no s'atura la resta.
+    peers_fresh = peers is not None
+    if not peers_fresh: peers = previous_peers()
     first_agreement = min((a['start'] for a in agreements if a['start']), default=None)
     counts = Counter(c['source'] for c in contracts)
     full_period = period_label(period)
@@ -458,7 +551,24 @@ def collect(period=PERIOD):
         source('grants', 'Concessions de subvencions · MINHAP/AOC', GRANTS_DATASET, sum(g['grants'] for g in grants), f'Concessions atorgades per l’Ajuntament {full_period}, per data de concessió; la font comença el maig del 2022.', 'Rèplica de la Base de Dades Nacional de Subvencions. Només es publiquen noms de persones jurídiques amb denominació pròpia (tipus deduït de la lletra del NIF, que no es publica); les concessions a persones físiques, societats civils i comunitats de béns s’agreguen per acord sense nom. ' + (f'{repeated_grants} files idèntiques (mateixa data, acord, beneficiari i import) es compten una sola vegada. ' if repeated_grants else '') + 'El procediment (amb convocatòria o sense) es dedueix del títol de l’acord. Font Ministeri d’Hisenda/AOC; llicència cc-zero.', capture),
         source('agreements', 'Convenis de col·laboració · Ajuntament', AGREEMENTS_DATASET, len(agreements), f'Tots els convenis que publica la font (inicis des del {first_agreement[:4] if first_agreement else "—"}), no només els del període.', 'Codi, títol, vigència, estat i si és prorrogable, tal com els declara l’Ajuntament; la font no informa imports ni signants. Les dates sentinella (1900) i les absents queden sense data. Un conveni «en curs» amb la data de fi passada pot tenir una pròrroga que no hi consta. Font Ajuntament/AOC; la fitxa no especifica llicència: es reprodueixen només metadades amb l’enllaç a l’original.', capture, 'partial'),
     ]
-    return {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'suppliers': suppliers, 'grants': grants, 'agreements': agreements, 'sources': sources, 'changes': []}
+    if peers:
+        compared = len(peers['municipalities'])
+        kept = '' if peers_fresh else f'No s’ha pogut actualitzar en aquesta captura: es conserva la del {peers["capturedAt"][:10]}. '
+        sources.append(source('peers', 'Comparació amb municipis de 15.000–35.000 habitants · Idescat i AOC', POPULATION_PAGE, compared, f'{compared} municipis segons el padró de {peers["populationYear"]}; pressupost inicial {full_period} i liquidacions {liquidation_period}.', kept + 'Població del padró municipal a 1 de gener (Idescat). Imports dels ajuntaments per capítol econòmic (AOC), sense ens dependents ni consolidació: un servei gestionat per una empresa municipal o un consorci no hi apareix igual a tots els municipis. Els municipis sense liquidació d’un exercici queden fora d’aquell exercici. Les xifres de Castellar es contrasten amb la secció de pressupost. Fonts Idescat i Generalitat/AOC; llicència cc-zero (AOC) i atribució (Idescat).', capture if peers_fresh else peers['capturedAt'], 'ok' if peers_fresh else 'partial'))
+    catalog = {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'suppliers': suppliers, 'grants': grants, 'agreements': agreements, 'sources': sources, 'changes': []}
+    if peers: catalog['peers'] = peers
+    return catalog
+
+def optional(job):
+    try: return job()
+    except Exception as e:
+        print('Comparació amb municipis no disponible: ' + type(e).__name__, file=sys.stderr, flush=True)
+        return None
+
+def previous_peers(root=ROOT):
+    path = root / 'public' / 'data' / 'catalog.json'
+    try: return json.loads(path.read_text(encoding='utf-8')).get('peers')
+    except (OSError, ValueError): return None
 
 def safe_change_value(field, value):
     if field.endswith('Cents'):
@@ -528,8 +638,22 @@ def validate(catalog):
             for k,v in r.items():
                 if k.endswith('Cents') and v is not None and (not isinstance(v, int) or abs(v) > 2**53): raise ValueError('Import no segur')
     if not catalog['contracts'] or not catalog['sessions']: raise ValueError('Catàleg incomplet')
+    if 'peers' in catalog: validate_peers(catalog['peers'])
     validate_changes(catalog)
     if PRIVATE.search(json.dumps(catalog, ensure_ascii=False)): raise ValueError('Identificador personal detectat al paquet')
+
+def validate_peers(peers):
+    codes = {m['code'] for m in peers['municipalities']}
+    if peers['self'] not in codes or not all(peers[k].startswith('https://') for k in ('populationUrl', 'initialUrl', 'liquidationUrl')): raise ValueError('Comparació invàlida')
+    for m in peers['municipalities']:
+        if not re.fullmatch(r'\d{6}', m['code']) or not all(isinstance(v, int) and v > 0 for v in m['population'].values()): raise ValueError('Població invàlida')
+    seen = set()
+    for r in peers['rows']:
+        key = (r['code'], r['year'], r['side'])
+        if r['code'] not in codes or key in seen or r['side'] not in ('despeses', 'ingressos'): raise ValueError('Fila de comparació invàlida')
+        seen.add(key)
+        for field in ('initialCents', 'finalCents', 'executedCents'):
+            if len(r[field]) != 9 or any(v is not None and (not isinstance(v, int) or isinstance(v, bool) or abs(v) > 2**53) for v in r[field]): raise ValueError('Import no segur')
 
 def payload(record):
     return json.dumps({k:v for k,v in record.items() if k != 'capturedAt'}, ensure_ascii=False, sort_keys=True, separators=(',', ':'))

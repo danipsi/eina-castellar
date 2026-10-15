@@ -6,6 +6,7 @@ import {agendaMotionId} from './motionData';
 import {Badge, Citation, DownloadButton, Empty, Original, PageTitle, Pagination, ShareLink} from './ui';
 import {updateRoute, useRoute} from './routes';
 import {BudgetComparison} from './BudgetComparison';
+import {PeerComparison} from './PeerComparison';
 import {Investments} from './Investments';
 import {MinorPatterns} from './MinorContracts';
 import {TermsAndExtensions} from './Terms';
@@ -65,6 +66,7 @@ export function Budget({data, onSelect}: {data: Catalog; onSelect: (s: Selection
     <div className="view-controls"><div className="segmented">{(['despeses', 'ingressos'] as const).map(s => <button key={s} aria-pressed={s === side} className={s === side ? 'active' : ''} onClick={() => setSide(s)}>{s === 'despeses' ? 'Despeses' : 'Ingressos'}</button>)}</div><label className="inline-label">Exercici <select aria-label="Exercici pressupostari" value={year} onChange={e => setYear(Number(e.target.value))}>{years.map(y => <option key={y}>{y}</option>)}</select></label></div>
     <div className="stats-grid three"><Stat label={side === 'despeses' ? 'Crèdit inicial' : 'Previsió inicial'} value={compactMoney(initial)} detail={money(initial)}/><Stat label={side === 'despeses' ? 'Crèdit definitiu' : 'Previsió definitiva'} value={compactMoney(final)} detail={final === null ? `Total no calculable: ${rows.filter(r => r.finalCents === null).length} capítols sense dades` : money(final)}/><Stat label={side === 'despeses' ? 'Obligacions reconegudes' : 'Drets reconeguts'} value={compactMoney(executed)} detail={executed === null ? (rows.some(r => r.executedCents !== null) ? `Total no calculable: ${rows.filter(r => r.executedCents === null).length} capítols sense dades` : 'Liquidació no disponible en aquesta captura') : `${pct(ratio(executed, final))} de ${side === 'despeses' ? 'crèdit definitiu' : 'previsió definitiva'}`} accent/></div>
     <BudgetComparison data={data} year={year} side={side} onSelect={onSelect}/>
+    <PeerComparison data={data} year={year} side={side}/>
     {side === 'despeses' && <Investments data={data} onSelect={onSelect}/>}
     <section className="panel"><div className="panel-heading"><div><h2>Execució per capítols</h2><p>Classificació econòmica · {year}</p></div><div className="legend"><span><i className="initial"/>Inicial</span><span><i className="final"/>Definitiu</span><span><i className="executed"/>Liquidat</span></div></div>
     {rows.length ? <><div className="budget-bars" aria-hidden="true">{rows.map(r => <div className="budget-bar-row" key={r.id}><div><span className="chapter-number">{r.chapter}</span><span>{r.chapterName}</span></div><div className="bar-stack">{(['initialCents', 'finalCents', 'executedCents'] as const).map((field, i) => <div key={field} className={`bar ${['initial', 'final', 'executed'][i]}`} style={{width: `${Math.max(0, (r[field] ?? 0) / max * 100)}%`}}/>)}</div><span className="mono">{pct(ratio(r.executedCents, r.finalCents))}</span></div>)}</div>

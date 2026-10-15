@@ -15,7 +15,11 @@ export type SupplierYear = {id: string; year: number; name: string | null; categ
 export type Grant = {id: string; year: number; date: string; call: string; procedure: 'convocatòria' | 'sense convocatòria'; agreement: string | null; beneficiary: string | null; category: string; grants: number; amountCents: number; repeated: number; url: string; capturedAt: string};
 // Convenis tal com els declara l'Ajuntament. endIssue explica per què end és null o incoherent.
 export type Agreement = {id: string; code: string; title: string; description: string | null; start: string | null; end: string | null; endIssue: 'absent' | 'sentinella' | 'anterior a l’inici' | null; status: string; extendable: boolean | null; url: string; capturedAt: string};
-export type Catalog = {schemaVersion: 1; generatedAt: string; contracts: Contract[]; events: ContractEvent[]; budget: BudgetRow[]; sessions: Session[]; suppliers?: SupplierYear[]; grants?: Grant[]; agreements?: Agreement[]; sources: Source[]; changes: CatalogChange[]};
+// Comparació amb municipis de mida semblant. Els imports són vectors dels capítols 1–9; null = capítol no informat.
+export type PeerMunicipality = {code: string; name: string; population: Record<string, number>; ens: string | null};
+export type PeerRow = {code: string; year: number; side: 'despeses' | 'ingressos'; initialCents: (number | null)[]; finalCents: (number | null)[]; executedCents: (number | null)[]};
+export type Peers = {capturedAt: string; range: [number, number]; populationYear: number; self: string; populationUrl: string; initialUrl: string; liquidationUrl: string; municipalities: PeerMunicipality[]; rows: PeerRow[]};
+export type Catalog = {schemaVersion: 1; generatedAt: string; contracts: Contract[]; events: ContractEvent[]; budget: BudgetRow[]; sessions: Session[]; suppliers?: SupplierYear[]; grants?: Grant[]; agreements?: Agreement[]; peers?: Peers; sources: Source[]; changes: CatalogChange[]};
 export type Evidence = {id: string; kind: 'contract' | 'session' | 'budget'; title: string; url: string; source: string; capturedAt: string; locator: string; addedAt?: string};
 export type Note = {id: string; text: string; kind: 'nota' | 'pregunta' | 'hipòtesi'; status: 'pendent' | 'contrastada' | 'descartada'; author?: string; updatedAt?: string};
 export type RequestKind = 'informacio' | 'pregunta' | 'prec';

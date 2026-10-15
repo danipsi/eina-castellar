@@ -113,6 +113,28 @@ def url_value(value, fallback):
     value = value.get('url') if isinstance(value, dict) else value
     return value if isinstance(value, str) and value.startswith('https://') else fallback
 
+PSCP_PAGE = re.compile(r'https://contractaciopublica\.cat/ca/detall-publicacio/([0-9a-f-]{36})/(\d+)')
+PSCP_JSON = re.compile(r'https://contractaciopublica\.cat/portal-api/documents-publicacio/json/(\d+)')
+
+def publication_pages(contracts):
+    # El UUID de la pàgina pública identifica l'expedient i permet obrir-hi qualsevol publicació seva.
+    # Si un expedient en té més d'un, no es pot saber quin correspon a cada publicació i es manté el JSON.
+    pages = {}
+    for c in contracts:
+        m = PSCP_PAGE.fullmatch(c['url'])
+        if m: pages.setdefault(c['expedient'], set()).add(m[1])
+    return {exp: next(iter(ids)) for exp, ids in pages.items() if len(ids) == 1}
+
+def public_page(url, expedient, pages):
+    # El JSON de la Plataforma no es pot llegir des d'una altra web; la pàgina pública el mostra i hi enllaça.
+    m = PSCP_JSON.fullmatch(url)
+    return f'https://contractaciopublica.cat/ca/detall-publicacio/{pages[expedient]}/{m[1]}' if m and expedient in pages else url
+
+def same_publication(a, b):
+    # Passar del JSON a la pàgina pública de la mateixa publicació no és un canvi de la font.
+    ids = [m[m.lastindex] for url in (a, b) if isinstance(url, str) and (m := PSCP_JSON.fullmatch(url) or PSCP_PAGE.fullmatch(url))]
+    return len(ids) == 2 and ids[0] == ids[1]
+
 def stable(*parts):
     return hashlib.sha256(json.dumps(parts, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:24]
 
@@ -222,14 +244,14 @@ def normalize_contracts(pscp, rpc, capture, period=PERIOD):
             result.append({'id': source.lower() + '-' + r['row_id'], 'source': source, 'expedient': exp, 'title': title or 'Objecte no informat', 'year': year, 'lot': lot, 'procedure': clean(r.get('procediment' if source == 'PSCP' else 'procediment_adjudicacio')), 'type': clean(r.get('tipus_contracte')), 'status': clean(r.get('fase_publicacio' if source == 'PSCP' else 'situaci_contractual')), 'amountCents': amount, 'vat': 'sense IVA' if source == 'PSCP' else 'no especificat', 'supplier': company(r.get('denominacio_adjudicatari' if source == 'PSCP' else 'adjudicatari')), 'cpv': cpv(r.get('codi_cpv')), 'date': d, 'formalizedDate': iso(r.get('data_formalitzacio_contracte')) if source == 'PSCP' else None, 'termStart': start, 'termEnd': end, 'duration': duration, 'url': url_value(r.get('enllac_publicacio'), native_url), 'capturedAt': capture, 'flags': flags})
     return sorted(result, key=lambda r: r['id'])
 
-def normalize_events(rows, capture, expedients, period=PERIOD):
+def normalize_events(rows, capture, expedients, period=PERIOD, pages=None):
     output = []
     for r in rows:
         if str(r.get('codi_organ')) != '3411306': raise ValueError('Òrgan d’execució incorrecte')
         d = iso(r.get('data'))
         exp = clean(r.get('codi_expedient')).upper()
         if not (d and int(d[:4]) in period_years(period)) and exp not in expedients: continue
-        output.append({'id': 'event-' + r['row_id'], 'expedient': exp, 'lot': clean(r.get('numero_lot')) or None, 'type': clean(r.get('tipus_actuacio_execucio')), 'title': public_title(r.get('denominacio_actuacio')) or clean(r.get('tipus_actuacio_execucio')), 'date': d, 'amountCents': cents(r.get('import_sense_iva')), 'url': url_value(r.get('url_json'), SOC + '8idu-wkjv.json?' + urllib.parse.urlencode({'$where': "codi_organ='3411306' AND codi_expedient='" + exp.replace("'", "''") + "'"})), 'capturedAt': capture})
+        output.append({'id': 'event-' + r['row_id'], 'expedient': exp, 'lot': clean(r.get('numero_lot')) or None, 'type': clean(r.get('tipus_actuacio_execucio')), 'title': public_title(r.get('denominacio_actuacio')) or clean(r.get('tipus_actuacio_execucio')), 'date': d, 'amountCents': cents(r.get('import_sense_iva')), 'url': public_page(url_value(r.get('url_json'), SOC + '8idu-wkjv.json?' + urllib.parse.urlencode({'$where': "codi_organ='3411306' AND codi_expedient='" + exp.replace("'", "''") + "'"})), exp, pages or {}), 'capturedAt': capture})
     return sorted(output, key=lambda r: r['id'])
 
 def normalize_budget(initial, liquidation, capture, period=PERIOD):
@@ -524,7 +546,7 @@ def collect(period=PERIOD):
         raw = {name: future.result() for name, future in futures.items()}
     print('APIs completades: ' + ', '.join(f'{k}={len(v) if v is not None else "error"}' for k,v in raw.items()), flush=True)
     contracts = normalize_contracts(raw['pscp'], raw['rpc'], capture, period)
-    events = normalize_events(raw['events'], capture, {c['expedient'] for c in contracts}, period)
+    events = normalize_events(raw['events'], capture, {c['expedient'] for c in contracts}, period, publication_pages(contracts))
     budget = normalize_budget(raw['initial'], raw['liq'], capture, period)
     sessions = collect_sessions(capture, period)
     suppliers, reconciled = normalize_suppliers(raw['invoices'], raw['providers'], capture, period)
@@ -590,7 +612,7 @@ def changed_fields(before, after):
     # Un camp nou o retirat de l'esquema no és un canvi de la font: només es comparen els comuns.
     for field in sorted((set(before) & set(after)) - {'capturedAt'}):
         old_value, new_value = before.get(field), after.get(field)
-        if old_value == new_value: continue
+        if old_value == new_value or (field == 'url' and same_publication(old_value, new_value)): continue
         change = {'field': field}
         if safe_change_value(field, old_value) and safe_change_value(field, new_value):
             change.update(before=old_value, after=new_value)

@@ -333,4 +333,18 @@ class IngestTest(unittest.TestCase):
             row = next(r for r in data['budget'] if r['year']==2024 and r['side']=='despeses' and r['chapter']==chapter)
             self.assertEqual(tuple(row[f] for f in ['initialCents','finalCents','executedCents']),amounts)
 
+class PublicationPageTests(unittest.TestCase):
+    def test_execucio_enllaca_pagina_publica_si_lexpedient_es_inequivoc(self):
+        page = 'https://contractaciopublica.cat/ca/detall-publicacio/{}/300508373'
+        uuid, other = '10708302-4564-4a07-9b34-2a4c1ed860a1', '20708302-4564-4a07-9b34-2a4c1ed860a2'
+        pages = m.publication_pages([{'expedient': 'CONT2300053', 'url': page.format(uuid)}, {'expedient': 'CONT2300053', 'url': page.format(uuid)},
+                                     {'expedient': 'CONT2400001', 'url': page.format(uuid)}, {'expedient': 'CONT2400001', 'url': page.format(other)}])
+        self.assertEqual(pages, {'CONT2300053': uuid})
+        json_url = 'https://contractaciopublica.cat/portal-api/documents-publicacio/json/300828470'
+        self.assertEqual(m.public_page(json_url, 'CONT2300053', pages), f'https://contractaciopublica.cat/ca/detall-publicacio/{uuid}/300828470')
+        self.assertEqual(m.public_page(json_url, 'CONT2400001', pages), json_url)
+        self.assertEqual(m.public_page('https://analisi.transparenciacatalunya.cat/resource/8idu-wkjv.json', 'CONT2300053', pages), 'https://analisi.transparenciacatalunya.cat/resource/8idu-wkjv.json')
+        self.assertEqual(m.changed_fields({'url': json_url}, {'url': m.public_page(json_url, 'CONT2300053', pages)}), [])
+        self.assertEqual(m.changed_fields({'url': json_url}, {'url': json_url.replace('300828470', '300828471')}), [{'field': 'url'}])
+
 if __name__ == '__main__': unittest.main()

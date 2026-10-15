@@ -3,6 +3,7 @@ import {ArrowDownToLine, Copy, FilePenLine, RotateCcw, Save, Trash2} from 'lucid
 import type {Dossier, FormalRequest, Note, RequestKind, RequestStatus} from './types';
 import {date, download, safeUrl, today} from './lib';
 import {REQUEST_STATUSES} from './storage';
+import {now, withoutItem} from './share';
 import {Badge, Modal} from './ui';
 
 export const REQUEST_LABELS: Record<RequestKind, string> = {informacio: 'Sol·licitud d’informació', pregunta: 'Pregunta al Ple', prec: 'Prec'};
@@ -44,7 +45,7 @@ export function RequestComposer({dossier, onSave, onClose}: {dossier: Dossier; o
   async function copy() {try {await navigator.clipboard.writeText(text); setMessage('Text copiat');} catch {setMessage('No s’ha pogut copiar. Selecciona el text i copia’l manualment.');}}
   async function save() {
     setBusy(true); setError('');
-    const request: FormalRequest = {id: crypto.randomUUID(), kind, text, createdAt: new Date().toISOString(), status: 'esborrany', presentedAt: null, registry: ''};
+    const request: FormalRequest = {id: crypto.randomUUID(), kind, text, createdAt: now(), status: 'esborrany', presentedAt: null, registry: '', updatedAt: now()};
     try {await onSave({...dossier, updatedAt: new Date().toISOString(), requests: [...(dossier.requests ?? []), request]}); onClose();} catch (e) {setError((e as Error).message);} finally {setBusy(false);}
   }
   return <Modal title="Prepara una pregunta formal" wide onClose={onClose}>
@@ -92,7 +93,7 @@ export function RequestList({dossier, busy, onSave, onCompose}: {dossier: Dossie
   const update = (next: FormalRequest[]) => onSave({...dossier, requests: next});
   return <div className="document-section"><h3>Preguntes i sol·licituds formals <span className="count">{requests.length}</span></h3>
     {!requests.length && <p className="muted">Converteix les notes i les fonts d’aquest dossier en una pregunta al Ple, un prec o una sol·licitud d’informació, i segueix-ne la resposta.</p>}
-    {requests.map(r => <RequestItem key={r.id} request={r} busy={busy} onChange={changed => update(requests.map(x => x.id === r.id ? changed : x))} onRemove={() => update(requests.filter(x => x.id !== r.id))}/>)}
+    {requests.map(r => <RequestItem key={r.id} request={r} busy={busy} onChange={changed => update(requests.map(x => x.id === r.id ? {...changed, updatedAt: now()} : x))} onRemove={() => onSave(withoutItem(dossier, 'request', r.id))}/>)}
     <button className="button secondary no-print" onClick={onCompose}><FilePenLine size={15}/>Prepara una pregunta formal</button>
   </div>;
 }

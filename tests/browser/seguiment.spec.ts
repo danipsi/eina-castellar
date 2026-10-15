@@ -82,10 +82,14 @@ test('dossier: pregunta formal amb notes i fonts, seguiment i còpia restaurada'
   await page.getByRole('button', {name: 'Còpia JSON'}).click();
   const payload = JSON.parse(await fs.readFile((await (await promise).path())!, 'utf8'));
   expect(payload.dossier.requests).toHaveLength(1);
-  await page.getByLabel('Importa dossier JSON').setInputFiles({name: 'copia.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(payload))});
+  await page.getByLabel('Importa un dossier o un paquet JSON').setInputFiles({name: 'copia.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(payload))});
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Ja tens aquesta versió');
+  await dialog.getByLabel(/^Importació de/).selectOption('copy');
+  await dialog.getByRole('button', {name: 'Confirma la importació', exact: true}).click();
   await expect(page.getByRole('button', {name: /Obra de la piscina/})).toHaveCount(2);
   payload.dossier.requests[0].status = 'inventat';
-  await page.getByLabel('Importa dossier JSON').setInputFiles({name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(payload))});
+  await page.getByLabel('Importa un dossier o un paquet JSON').setInputFiles({name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(payload))});
   await expect(page.getByRole('alert')).toContainText('no és un dossier vàlid');
 });
 

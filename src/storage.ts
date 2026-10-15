@@ -66,26 +66,48 @@ export async function removeDossier(dossier: Dossier) {
     tx.onerror = tx.onabort = () => reject(conflict ? new DossierConflict() : new Error('No s’ha pogut eliminar el dossier.'));
   });
 }
+const ID = /^[A-Za-z0-9_-]{1,100}$/;
+const STAMP = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
+// Conserva els identificadors vàlids perquè una segona importació del mateix dossier es fusioni en lloc de duplicar-se.
 export function parseDossier(value: unknown): Dossier {
   const bad = () => {throw new Error('Aquest fitxer no és un dossier vàlid de l’Observatori.');};
   if (!value || typeof value !== 'object') return bad();
   const envelope = value as Record<string, unknown>;
   if (envelope.schemaVersion !== 1 || !envelope.dossier || typeof envelope.dossier !== 'object') return bad();
-  const d = envelope.dossier as Record<string, unknown>;
+  return parseDossierBody(envelope.dossier as Record<string, unknown>);
+}
+export function parseDossierBody(d: Record<string, unknown>): Dossier {
+  const bad = (): never => {throw new Error('Aquest fitxer no és un dossier vàlid de l’Observatori.');};
   const str = (v: unknown, max = 5000): v is string => typeof v === 'string' && v.length <= max;
+  const id = (v: unknown) => typeof v === 'string' && ID.test(v) ? v : crypto.randomUUID();
+  const stamp = (v: unknown): string | undefined => v === undefined ? undefined : typeof v === 'string' && STAMP.test(v) ? v : bad();
   if (!str(d.title, 160) || !d.title.trim() || !str(d.createdAt, 40) || !str(d.updatedAt, 40) || !Array.isArray(d.notes) || !Array.isArray(d.evidence) || d.notes.length > 1000 || d.evidence.length > 2000) return bad();
   const evidence = d.evidence.map(e => {
     if (!e || !str(e.id, 300) || !['contract', 'session', 'budget'].includes(e.kind) || !str(e.title) || !str(e.url, 2000) || safeUrl(e.url) === '#' || !str(e.source) || !str(e.capturedAt, 40) || !str(e.locator)) return bad();
-    return {id: e.id, kind: e.kind, title: e.title, url: e.url, source: e.source, capturedAt: e.capturedAt, locator: e.locator};
+    const addedAt = stamp(e.addedAt);
+    return {id: e.id, kind: e.kind, title: e.title, url: e.url, source: e.source, capturedAt: e.capturedAt, locator: e.locator, ...(addedAt ? {addedAt} : {})};
   });
   const notes = d.notes.map(n => {
-    if (!n || !str(n.text, 50000) || !['nota', 'pregunta', 'hipòtesi'].includes(n.kind) || !['pendent', 'contrastada', 'descartada'].includes(n.status)) return bad();
-    return {id: crypto.randomUUID(), text: n.text, kind: n.kind, status: n.status};
+    if (!n || !str(n.text, 50000) || !['nota', 'pregunta', 'hipòtesi'].includes(n.kind) || !['pendent', 'contrastada', 'descartada'].includes(n.status) || (n.author !== undefined && !str(n.author, 40))) return bad();
+    const updatedAt = stamp(n.updatedAt);
+    return {id: id(n.id), text: n.text, kind: n.kind, status: n.status, ...(n.author?.trim() ? {author: n.author.trim()} : {}), ...(updatedAt ? {updatedAt} : {})};
   });
   if (d.requests !== undefined && (!Array.isArray(d.requests) || d.requests.length > 500)) return bad();
   const requests = ((d.requests ?? []) as Record<string, unknown>[]).map(r => {
     if (!r || !REQUEST_KINDS.includes(r.kind as RequestKind) || !str(r.text, 100000) || !str(r.createdAt, 40) || !REQUEST_STATUSES.includes(r.status as RequestStatus) || !(r.presentedAt === null || (str(r.presentedAt, 10) && /^\d{4}-\d{2}-\d{2}$/.test(r.presentedAt))) || !str(r.registry, 120)) return bad();
-    return {id: crypto.randomUUID(), kind: r.kind as RequestKind, text: r.text, createdAt: r.createdAt, status: r.status as RequestStatus, presentedAt: r.presentedAt as string | null, registry: r.registry};
+    const updatedAt = stamp(r.updatedAt);
+    return {id: id(r.id), kind: r.kind as RequestKind, text: r.text, createdAt: r.createdAt, status: r.status as RequestStatus, presentedAt: r.presentedAt as string | null, registry: r.registry, ...(updatedAt ? {updatedAt} : {})};
   });
-  return {id: crypto.randomUUID(), title: d.title, createdAt: d.createdAt, updatedAt: d.updatedAt, evidence, notes, ...(requests.length ? {requests} : {})};
+  if (new Set(notes.map(n => n.id)).size < notes.length || new Set(evidence.map(e => e.id)).size < evidence.length || new Set(requests.map(r => r.id)).size < requests.length) return bad();
+  const deleted: Record<string, string> = {};
+  if (d.deleted !== undefined) {
+    if (!d.deleted || typeof d.deleted !== 'object' || Array.isArray(d.deleted)) return bad();
+    const entries = Object.entries(d.deleted as Record<string, unknown>);
+    if (entries.length > 5000) return bad();
+    for (const [key, when] of entries) {
+      if (!/^(evidence|note|request):.{1,300}$/.test(key) || typeof when !== 'string' || !STAMP.test(when)) return bad();
+      deleted[key] = when;
+    }
+  }
+  return {id: id(d.id), title: d.title, createdAt: d.createdAt, updatedAt: d.updatedAt, evidence, notes, ...(requests.length ? {requests} : {}), ...(Object.keys(deleted).length ? {deleted} : {})};
 }

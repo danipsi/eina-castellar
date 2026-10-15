@@ -15,7 +15,7 @@ La consulta funciona amb la captura inclosa; no cal actualitzar les dades per pr
 3. A Cronologia documentada, consulta el punt 6 del ple de **31/03/2026**. És una menció a l’ordre del dia, no una confirmació del resultat de la votació.
 4. Prem **Afegeix al dossier**, crea un dossier i posa-hi un nom.
 5. A Dossiers, afegeix una pregunta o nota. Les hipòtesis s’identifiquen explícitament i tenen estat de revisió.
-6. Prem **Còpia JSON**. Aquest és el fitxer que permet restaurar fonts i notes amb **Importa còpia**. Markdown és per llegir o editar el dossier; Imprimeix permet desar-lo com a PDF des del navegador.
+6. Prem **Còpia JSON**. Aquest és el fitxer que permet restaurar fonts i notes amb **Importa**. Markdown és per llegir o editar el dossier; Imprimeix permet desar-lo com a PDF des del navegador.
 
 ## Consulta i exporta dades
 
@@ -47,13 +47,29 @@ La consulta funciona amb la captura inclosa; no cal actualitzar les dades per pr
 
 ## Conserva els dossiers locals
 
-Els dossiers es desen a IndexedDB **només al navegador actual**. No se sincronitzen entre ordinadors, perfils, ports o dominis. Si es netegen les dades del navegador, es poden perdre. Descarrega periòdicament una còpia JSON i importa-la al navegador nou. La importació crea un dossier separat per evitar sobreescriure’n un d’existent.
+Els dossiers es desen a IndexedDB **només al navegador actual**. No se sincronitzen entre ordinadors, perfils, ports o dominis. Si es netegen les dades del navegador, es poden perdre. Descarrega periòdicament una còpia JSON i importa-la al navegador nou. Abans d’importar es mostra què canviarà; si el dossier ja hi és, els canvis es fusionen en lloc de duplicar-lo (vegeu l’apartat següent). També el pots importar com a còpia separada.
 
 Pots consultar i exportar els dossiers encara que falli o s’endarrereixi la càrrega de les dades públiques. Si edites el mateix dossier en dues pestanyes, un canvi fet sobre una versió antiga queda bloquejat: es carrega la versió actual, es conserva l’esborrany i se’t demana revisar els canvis abans de tornar a desar. També es comprova la versió abans d’eliminar un dossier.
 
 El text i el tipus de cada nota pendent es conserven separadament per dossier, dins de la pestanya, quan canvies de secció o recarregues. **Prem «Afegeix nota» abans de tancar la pestanya**: un esborrany encara no forma part del dossier ni de la còpia JSON. El navegador avisa si intentes sortir amb text pendent. Si no permet desar esborranys per a una recàrrega, apareix un avís i el text es manté en memòria mentre la pàgina continuï oberta.
 
-Les notes personals no entren al paquet del web. No hi ha comptes ni un servidor de dossiers. Evita dades identificatives de persones i informació sensible a les notes i còpies.
+## Comparteix dossiers dins del grup
+
+No hi ha cap servidor: l’intercanvi es fa amb fitxers JSON que us passeu per un canal intern del grup (correu, carpeta compartida privada…). El fitxer conté les vostres notes: no el publiqueu ni l’adjunteu a documents oficials.
+
+1. A **Inicials**, al costat de «Afegeix nota», escriu les teves inicials o un àlies. Es recorden en aquest navegador i acompanyen les notes noves, de manera que el grup sap qui ha escrit cada nota. És opcional.
+2. Per enviar-ho tot, prem **Paquet del grup**: un sol fitxer amb tots els dossiers i el seguiment de mocions (marques i unions de noms de grup). Per enviar-ne només un, obre’l i prem **Còpia JSON**.
+3. Qui el rep prem **Importa** i tria el fitxer. La finestra **Revisa la importació** indica, per a cada dossier, si és nou o si ja el té i què canviarà: fonts i notes noves, elements actualitzats i elements eliminats per qui l’ha enviat. Per a cada dossier es pot triar fusionar-lo, importar-lo com a còpia separada o no importar-lo. El seguiment de mocions es pot incloure o no.
+4. Prem **Confirma la importació**.
+
+Com es fusiona:
+
+- Cada font, nota i petició té un identificador propi. Si només és en un dels dos fitxers, s’afegeix; si és als dos amb diferències, es queda la versió canviada més recentment (amb la mateixa data, la teva). Per això el rellotge dels ordinadors ha d’estar en hora.
+- Les eliminacions també viatgen: una nota que algú ha eliminat desapareix en importar el seu fitxer i no torna a aparèixer si després s’importa una còpia antiga. Una font que es torna a afegir després d’eliminar-la es conserva.
+- El nom del dossier no es canvia en fusionar. Eliminar un dossier sencer no s’envia als altres: cadascú l’elimina al seu navegador.
+- Importar dues vegades el mateix fitxer no duplica res. Les còpies exportades abans d’aquesta versió també es fusionen.
+
+Les notes personals no es publiquen al web. No hi ha comptes ni un servidor de dossiers. Evita dades identificatives de persones i informació sensible a les notes i còpies.
 
 ## Actualitza la captura
 

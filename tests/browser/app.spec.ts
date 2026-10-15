@@ -67,14 +67,15 @@ test('dossier local: evidència, nota, estat, persistència i còpia restaurada'
   await page.getByRole('button', {name:'Elimina el dossier',exact:true}).click();
   await page.getByRole('button', {name:'Elimina’l',exact:true}).click();
   await expect(page.getByRole('heading', {name:'Comença amb una pregunta'})).toBeVisible();
-  await page.getByLabel('Importa dossier JSON').setInputFiles({name:'copia.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(payload))});
+  await page.getByLabel('Importa un dossier o un paquet JSON').setInputFiles({name:'copia.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(payload))});
+  await page.getByRole('dialog').getByRole('button', {name: 'Confirma la importació', exact: true}).click();
   await expect(page.getByRole('heading', {name:'Seguiment de prova'})).toBeVisible();
   await expect(page.getByText('Contrastar el punt 6 amb l’acta original.')).toBeVisible();
   await expect(page.getByLabel('Estat de revisió de la nota')).toHaveValue('contrastada');
   expect(await page.locator('.evidence-item .original').getAttribute('href')).toBe(payload.dossier.evidence[0].url);
   await page.screenshot({path:'test-results/dossier.png',fullPage:true});
   payload.dossier.evidence[0].url = 'javascript:alert(1)';
-  await page.getByLabel('Importa dossier JSON').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(payload))});
+  await page.getByLabel('Importa un dossier o un paquet JSON').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(payload))});
   await expect(page.getByRole('alert')).toContainText('no és un dossier vàlid');
 });
 

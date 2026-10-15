@@ -82,5 +82,6 @@ export function dossierMarkdown(d: Dossier) {
   return `# ${escape(d.title)}\n\nDossier personal · exportat el ${date(new Date().toISOString())}\n\n## Fonts\n\n` +
     d.evidence.map((e, i) => `${i + 1}. ${escape(e.title)}\n   - Font: ${escape(e.source)}\n   - Original: <${safeUrl(e.url)}>\n   - Localitzador: ${escape(e.locator)}\n   - Captura: ${e.capturedAt}`).join('\n\n') +
     '\n\n## Notes personals\n\n' + d.notes.map(n => `### ${n.kind} · ${n.status}\n\n${escape(n.text)}`).join('\n\n') +
+    (d.requests?.length ? '\n\n## Preguntes i sol·licituds formals\n\n' + d.requests.map(r => `### ${r.kind} · ${r.status}${r.presentedAt ? ` · presentada el ${r.presentedAt}` : ''}${r.registry ? ` · registre ${escape(r.registry)}` : ''}\n\n${escape(r.text)}`).join('\n\n') : '') +
     '\n\nLes notes i hipòtesis són personals. Una menció en un ordre del dia no acredita l’aprovació d’un acord.\n';
 }

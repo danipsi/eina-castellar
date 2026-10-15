@@ -67,6 +67,7 @@ jobs:
       - name: Genera el web a l’adreça del repositori
         env:
           PAGES_BASE: ${{ steps.pages.outputs.base_path }}/
+          SITE_URL: ${{ steps.pages.outputs.base_url }}/
         run: npm run build -- --base "$PAGES_BASE"
       - name: Comprova el paquet que es publicarà
         env:

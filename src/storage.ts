@@ -1,4 +1,7 @@
-import type {Dossier} from './types';
+import type {Dossier, RequestKind, RequestStatus} from './types';
+
+export const REQUEST_KINDS: RequestKind[] = ['informacio', 'pregunta', 'prec'];
+export const REQUEST_STATUSES: RequestStatus[] = ['esborrany', 'presentada', 'resposta', 'resposta parcial', 'sense resposta'];
 import {safeUrl} from './lib';
 
 let dbPromise: Promise<IDBDatabase> | undefined;
@@ -79,5 +82,10 @@ export function parseDossier(value: unknown): Dossier {
     if (!n || !str(n.text, 50000) || !['nota', 'pregunta', 'hipòtesi'].includes(n.kind) || !['pendent', 'contrastada', 'descartada'].includes(n.status)) return bad();
     return {id: crypto.randomUUID(), text: n.text, kind: n.kind, status: n.status};
   });
-  return {id: crypto.randomUUID(), title: d.title, createdAt: d.createdAt, updatedAt: d.updatedAt, evidence, notes};
+  if (d.requests !== undefined && (!Array.isArray(d.requests) || d.requests.length > 500)) return bad();
+  const requests = ((d.requests ?? []) as Record<string, unknown>[]).map(r => {
+    if (!r || !REQUEST_KINDS.includes(r.kind as RequestKind) || !str(r.text, 100000) || !str(r.createdAt, 40) || !REQUEST_STATUSES.includes(r.status as RequestStatus) || !(r.presentedAt === null || (str(r.presentedAt, 10) && /^\d{4}-\d{2}-\d{2}$/.test(r.presentedAt))) || !str(r.registry, 120)) return bad();
+    return {id: crypto.randomUUID(), kind: r.kind as RequestKind, text: r.text, createdAt: r.createdAt, status: r.status as RequestStatus, presentedAt: r.presentedAt as string | null, registry: r.registry};
+  });
+  return {id: crypto.randomUUID(), title: d.title, createdAt: d.createdAt, updatedAt: d.updatedAt, evidence, notes, ...(requests.length ? {requests} : {})};
 }

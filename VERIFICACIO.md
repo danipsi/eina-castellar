@@ -103,3 +103,13 @@ Implementació local de les sis correccions i les dues millores de manteniment. 
 - **Publicació:** GitHub Actions instal·la Chromium, comprova els fluxos abans de capturar i prova el paquet de producció amb la seva base URL abans de publicar. Els passos de publicació no s’executen si les proves fallen. L’execució remota d’aquest flux modificat continua pendent.
 
 Verificació executada: 16 proves Python, 22 escenaris de navegador i 2 de producció superats a Windows/Edge. La suite de navegador completa tenia 21 escenaris; després d’afegir el cas de desament endarrerit es van repetir els 8 del bloc de dossiers, i després el cas de descart d’esborranys recuperats. Compilació TypeScript/Vite correcta; es mantenen els avisos ja coneguts de `use client` de la biblioteca d’icones. `git diff --check` correcte. Proves noves a `tests/browser/dossiers-safety.spec.ts`, `tests/browser/data-integrity.spec.ts` i `tests/test_ingest.py`; dades fictícies per als casos de concurrència i pèrdua d’esborranys.
+
+## Eines de seguiment · 15/10/2026
+
+Implementació local; no s’ha publicat ni modificat la captura.
+
+- **Inversions:** sèrie del capítol 6 de despeses per exercici. Execució = obligacions reconegudes / crèdit definitiu; l’exercici sense liquidació apareix com a no calculable. Amb la captura del 13/10/2026: 35,6 % (2022), 59,3 % (2023), 29,1 % (2024) i 41,7 % (2025). La prova compara cada percentatge amb el catàleg.
+- **Preguntes formals:** plantilles de sol·licitud d’informació (art. 77 LBRL i art. 164 TRLMRLC), pregunta al Ple i prec. Les hipòtesis i les notes descartades no s’hi inclouen per defecte. Les peticions formen part del dossier local i la importació en valida tipus, estat, data i registre.
+- **RSS:** `ple.xml` es genera en compilar (i en el servidor de desenvolupament) a partir de `public/data/catalog.json`. El flux de Pages hi passa l’adreça del web com a `SITE_URL`.
+
+Verificació executada: 25 escenaris de navegador (3 de nous a `tests/browser/seguiment.spec.ts`) i 2 de producció, aquests amb comprovació del canal sota la base del repositori. TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil.

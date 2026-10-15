@@ -12,6 +12,9 @@ test('el paquet de producció carrega sota el nom del repositori', async ({page}
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', `${basePath}favicon.svg`);
   const data = await page.request.get('./data/catalog.json');
   expect(data.ok()).toBe(true);
+  const feed = await page.request.get('./ple.xml');
+  expect(feed.ok()).toBe(true);
+  expect(await feed.text()).toContain('<rss version="2.0">');
   await page.goto('./#contracts');
   await page.reload();
   await expect(page.getByLabel('Filtra contractes')).toBeVisible();

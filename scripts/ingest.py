@@ -153,6 +153,31 @@ def cpv(value):
     found = re.search(r'\b(\d{8})(?:-(\d))?\b', str(value or ''))
     return found[1] + ('-' + found[2] if found[2] else '') if found else None
 
+UNITS = {'any': 'Y', 'anys': 'Y', 'mes': 'M', 'mesos': 'M', 'dia': 'D', 'dies': 'D'}
+
+def iso_duration(years=0, months=0, days=0):
+    parts = [(years, 'Y'), (months, 'M'), (days, 'D')]
+    return 'P' + ''.join(f'{n}{u}' for n, u in parts if n) if any(n for n, _ in parts) else None
+
+def term(value):
+    # Durada tal com la publica la PSCP: «2 anys», «3 mesos 15 dies» o «dd/mm/aaaa a dd/mm/aaaa».
+    # Retorna (inici, fi, durada ISO 8601); el que no s'entén queda buit, sense deduccions.
+    s = clean(value).lower()
+    found = re.fullmatch(r'(\d{2}/\d{2}/\d{4})\s+a\s+(\d{2}/\d{2}/\d{4})', s)
+    if found:
+        try: start, end = (datetime.strptime(x, '%d/%m/%Y').date().isoformat() for x in found.groups())
+        except ValueError: return None, None, None
+        return (start, end, None) if start <= end else (None, None, None)
+    pieces = re.findall(r'(\d{1,3})\s*(anys?|mesos|mes|dies|dia)\b', s)
+    if not pieces or re.sub(r'(\d{1,3})\s*(anys?|mesos|mes|dies|dia)\b|\s|,|\bi\b', '', s): return None, None, None
+    amounts = {'Y': 0, 'M': 0, 'D': 0}
+    for n, unit in pieces: amounts[UNITS[unit]] += int(n)
+    return None, None, iso_duration(amounts['Y'], amounts['M'], amounts['D'])
+
+def rpc_duration(r):
+    try: return iso_duration(*(int(r.get(k) or 0) for k in ['anys_durada', 'mesos_durada', 'dies_durada']))
+    except ValueError: return None
+
 def normalize_contracts(pscp, rpc, capture, period=PERIOD):
     result = []
     for source, rows in [('PSCP', pscp), ('RPC', rpc)]:
@@ -176,8 +201,9 @@ def normalize_contracts(pscp, rpc, capture, period=PERIOD):
                 amount = None
                 flags.append('Import compost o amb format no interpretat. Consulta l’original.')
             title = public_title(r.get('denominacio') if source == 'PSCP' else r.get('descripcio_expedient') or r.get('contracte'))
+            start, end, duration = term(r.get('durada_contracte')) if source == 'PSCP' else (None, None, rpc_duration(r))
             native_url = SOC + ('ybgg-dgi6' if source == 'PSCP' else 'hb6v-jcbf') + '.json?' + urllib.parse.urlencode({'$where': ':id=' + "'" + r['row_id'] + "'"})
-            result.append({'id': source.lower() + '-' + r['row_id'], 'source': source, 'expedient': exp, 'title': title or 'Objecte no informat', 'year': year, 'lot': lot, 'procedure': clean(r.get('procediment' if source == 'PSCP' else 'procediment_adjudicacio')), 'type': clean(r.get('tipus_contracte')), 'status': clean(r.get('fase_publicacio' if source == 'PSCP' else 'situaci_contractual')), 'amountCents': amount, 'vat': 'sense IVA' if source == 'PSCP' else 'no especificat', 'supplier': company(r.get('denominacio_adjudicatari' if source == 'PSCP' else 'adjudicatari')), 'cpv': cpv(r.get('codi_cpv')), 'date': d, 'url': url_value(r.get('enllac_publicacio'), native_url), 'capturedAt': capture, 'flags': flags})
+            result.append({'id': source.lower() + '-' + r['row_id'], 'source': source, 'expedient': exp, 'title': title or 'Objecte no informat', 'year': year, 'lot': lot, 'procedure': clean(r.get('procediment' if source == 'PSCP' else 'procediment_adjudicacio')), 'type': clean(r.get('tipus_contracte')), 'status': clean(r.get('fase_publicacio' if source == 'PSCP' else 'situaci_contractual')), 'amountCents': amount, 'vat': 'sense IVA' if source == 'PSCP' else 'no especificat', 'supplier': company(r.get('denominacio_adjudicatari' if source == 'PSCP' else 'adjudicatari')), 'cpv': cpv(r.get('codi_cpv')), 'date': d, 'formalizedDate': iso(r.get('data_formalitzacio_contracte')) if source == 'PSCP' else None, 'termStart': start, 'termEnd': end, 'duration': duration, 'url': url_value(r.get('enllac_publicacio'), native_url), 'capturedAt': capture, 'flags': flags})
     return sorted(result, key=lambda r: r['id'])
 
 def normalize_events(rows, capture, expedients, period=PERIOD):
@@ -293,8 +319,8 @@ def source(id, name, url, records, coverage, note, capture, status='ok'):
 def collect(period=PERIOD):
     capture = stamp()
     jobs = {
-        'pscp': lambda: socrata('ybgg-dgi6', "codi_organ='3411306'", 'codi_organ,id_intern,codi_expedient,numero_lot,denominacio,procediment,tipus_contracte,fase_publicacio,denominacio_adjudicatari,import_adjudicacio_sense,data_adjudicacio_contracte,enllac_publicacio,data_publicacio_adjudicacio,data_publicacio_anunci,data_publicacio_formalitzacio,data_publicacio_contracte,codi_cpv'),
-        'rpc': lambda: socrata('hb6v-jcbf', "id_organisme_contractant='0805170005'", 'id_organisme_contractant,codi_expedient,numero_lot,exercici,descripcio_expedient,contracte,procediment_adjudicacio,tipus_contracte,situaci_contractual,adjudicatari,import_adjudicacio,data_adjudicacio,codi_cpv'),
+        'pscp': lambda: socrata('ybgg-dgi6', "codi_organ='3411306'", 'codi_organ,id_intern,codi_expedient,numero_lot,denominacio,procediment,tipus_contracte,fase_publicacio,denominacio_adjudicatari,import_adjudicacio_sense,data_adjudicacio_contracte,enllac_publicacio,data_publicacio_adjudicacio,data_publicacio_anunci,data_publicacio_formalitzacio,data_publicacio_contracte,codi_cpv,durada_contracte,data_formalitzacio_contracte'),
+        'rpc': lambda: socrata('hb6v-jcbf', "id_organisme_contractant='0805170005'", 'id_organisme_contractant,codi_expedient,numero_lot,exercici,descripcio_expedient,contracte,procediment_adjudicacio,tipus_contracte,situaci_contractual,adjudicatari,import_adjudicacio,data_adjudicacio,codi_cpv,anys_durada,mesos_durada,dies_durada'),
         'events': lambda: socrata('8idu-wkjv', "codi_organ='3411306'", 'codi_organ,codi_expedient,numero_lot,tipus_actuacio_execucio,denominacio_actuacio,data,import_sense_iva,url_json'),
         'initial': lambda: ckan(BUDGET_ID), 'liq': lambda: ckan(LIQ_ID),
     }

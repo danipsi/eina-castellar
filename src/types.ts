@@ -2,7 +2,7 @@ export type Contract = {
   id: string; source: 'PSCP' | 'RPC'; expedient: string; title: string;
   year: number | null; lot: string | null; procedure: string; type: string;
   status: string; amountCents: number | null; vat: string; supplier: string | null; cpv?: string | null;
-  date: string | null; url: string; capturedAt: string; flags: string[];
+  date: string | null; formalizedDate?: string | null; termStart?: string | null; termEnd?: string | null; duration?: string | null; url: string; capturedAt: string; flags: string[];
 };
 export type ContractEvent = {id: string; expedient: string; lot: string | null; type: string; title: string; date: string | null; amountCents: number | null; url: string; capturedAt: string};
 export type BudgetRow = {id: string; year: number; side: 'despeses' | 'ingressos'; chapter: string; chapterName: string; initialCents: number | null; finalCents: number | null; executedCents: number | null; url: string; initialUrl?: string; liquidationUrl?: string; capturedAt: string};

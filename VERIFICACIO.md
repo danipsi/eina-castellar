@@ -131,3 +131,12 @@ Verificació executada: 27 escenaris de navegador (2 de nous a `tests/browser/mo
 - **Grups:** dos o més contractes del mateix exercici d’adjudicació i tipus de llindar que, sumats, hi arriben; per adjudicatari (només formes societàries explícites) o per prefix del CPV (3, 4, 5 o 8 xifres; 4 per defecte). No s’hi infereix cap fraccionament.
 
 Verificació executada: 29 escenaris de navegador (2 de nous a `tests/browser/contractes-menors.spec.ts`, amb contractes inventats) i 2 de producció; 2 proves noves de la captura (CPV i camp nou sense canvis). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil.
+
+## Venciments i pròrrogues · 15/10/2026
+
+- **Captura:** `scripts/ingest.py` afegeix `formalizedDate`, `termStart`, `termEnd` i `duration` (ISO 8601, p. ex. `P2Y`). La PSCP publica la durada en text lliure: «dd/mm/aaaa a dd/mm/aaaa» dona inici i fi; «N anys/mesos/dies» dona la durada; qualsevol altre text queda buit, sense deduccions. El RPC informa anys, mesos i dies; una durada de zero queda buida. Captura del 15/10/2026, contractes no menors: PSCP 284 (154 amb data de fi, 59 només amb durada, 71 sense), RPC 283 (282 amb durada).
+- **Fi del termini inicial:** `src/termData.ts` usa la data de fi publicada; si no n’hi ha, inici + durada − 1 dia, des de la formalització o, si manca, des de l’adjudicació. Els mesos no desborden (31 de gener + 1 mes = final de febrer). Un expedient i lot compta una vegada per font, amb preferència per la data publicada. Els contractes menors en queden fora (art. 29.8 LCSP: no es poden prorrogar).
+- **Pròrrogues:** fites d’execució de la PSCP de tipus «Pròrroga», agrupades per expedient i lot (el lot «0» equival a sense lot); la mateixa data i títol compten una vegada. «Extraordinària» es detecta pel títol. Captura del 15/10/2026: 94 fites, 64 expedients i lots, 29 amb dues o més, 1 extraordinària.
+- **Referència temporal:** la data d’avui a Europa/Madrid, com la resta de l’eina.
+
+Verificació executada: 31 escenaris de navegador (2 de nous a `tests/browser/venciments.spec.ts`, amb contractes, fites i data inventats) i 2 de producció; 1 prova nova de la captura (lectura de durades). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil.

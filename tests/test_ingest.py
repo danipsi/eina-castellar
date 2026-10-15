@@ -52,6 +52,16 @@ class IngestTest(unittest.TestCase):
         self.assertIsNone(m.cpv(''))
         self.assertIsNone(m.cpv('123456789'))
 
+    def test_term_keeps_only_what_the_source_states(self):
+        self.assertEqual(m.term('27/02/2025 a 26/02/2027'), ('2025-02-27', '2027-02-26', None))
+        self.assertEqual(m.term('2 anys'), (None, None, 'P2Y'))
+        self.assertEqual(m.term('3 mesos 15 dies'), (None, None, 'P3M15D'))
+        self.assertEqual(m.term('1 mes'), (None, None, 'P1M'))
+        for unclear in ['', None, '2 anys prorrogables', '31/02/2025 a 01/03/2025', '01/03/2026 a 01/02/2026', '0 dies']:
+            self.assertEqual(m.term(unclear), (None, None, None))
+        self.assertEqual(m.rpc_duration({'anys_durada': '1', 'mesos_durada': '0', 'dies_durada': '1'}), 'P1Y1D')
+        self.assertIsNone(m.rpc_duration({'anys_durada': '0', 'mesos_durada': '0', 'dies_durada': '0'}))
+
     def test_new_schema_field_is_not_a_change(self):
         data = self.catalog()
         with self.temporary_root() as d:

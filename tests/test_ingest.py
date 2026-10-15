@@ -89,6 +89,37 @@ class IngestTest(unittest.TestCase):
         _, reconciled = m.normalize_suppliers(invoices[1:], providers, '2026-10-15')
         self.assertFalse(reconciled)
 
+    def test_grants_hide_people_and_count_repeated_rows_once(self):
+        # Dades inventades: NIF i noms no corresponen a cap persona ni entitat real.
+        row = lambda who, amount, title='Resolució de convocatòria de subvencions 2024', day='2024-07-01T00:00:00': {'DATA_DE_CONCESSIO': day, 'TITOL': title, 'IMPORT': amount, 'BENEFICIARI': who}
+        rows = [
+            row('G12345678 ENTITAT ALFA', '1500'), row('G12345678 ENTITAT ALFA', '1500'), row('G12345678 ENTITAT ALFA', '700', 'Resolució per la qual es convoquen subvencions 2024'),
+            row('***1234** PERSONA INVENTADA', '300', 'Acord de concessió directa a autònoms'), row('****5678* ALTRA PERSONA', '200', 'Acord de concessió directa a autònoms'),
+            row('J12345678 COGNOM I COGNOM SCP', '100', 'Acord de concessió directa a autònoms'),
+            row('G87654321 CLUB BETA', '900', 'Acord de subvenció nominativa amb conveni CONV2400007'),
+            row('G12345678 ENTITAT ALFA', '50', day='2019-01-01T00:00:00'),
+        ]
+        records, repeated = m.normalize_grants(rows, '2026-10-15')
+        self.assertEqual(repeated, 1)
+        alfa = sorted((r for r in records if r['beneficiary'] == 'ENTITAT ALFA'), key=lambda r: r['amountCents'])
+        self.assertEqual([(r['amountCents'], r['repeated'], r['procedure']) for r in alfa], [(70000, 0, 'convocatòria'), (150000, 1, 'convocatòria')])
+        others = [r for r in records if r['beneficiary'] is None]
+        self.assertEqual([(r['grants'], r['amountCents'], r['category'], r['url']) for r in others], [(3, 60000, m.UNNAMED, m.GRANTS_DATASET)])
+        beta = next(r for r in records if r['beneficiary'] == 'CLUB BETA')
+        self.assertEqual((beta['procedure'], beta['agreement'], beta['category']), ('sense convocatòria', 'CONV2400007', 'entitat'))
+        published = json.dumps(records, ensure_ascii=False)
+        for hidden in ['PERSONA', 'COGNOM', 'G12345678', '1234', '5678']:
+            self.assertNotIn(hidden, published)
+        self.assertNotIn(2019, {r['year'] for r in records})
+
+    def test_agreements_keep_declared_validity(self):
+        row = lambda code, start, end, status='En curs', extendable='Sí': {'CODI_EXPEDIENT': code, 'TITOL': f'Conveni {code}', 'DESCRIPCIO': None, 'DATA_INICI': start, 'DATA_FINAL': end, 'ESTAT': status, 'PRORROGABLE': extendable}
+        records = m.normalize_agreements([row('CONV2400001', '2024-01-01T00:00:00', '2024-12-31T00:00:00'), row('CONV2400002', '2024-01-01T00:00:00', None, extendable='N'), row('CONV2400003', '2024-01-01T00:00:00', '1900-01-01T00:00:00', extendable=None), row('CONV2400004', '2024-11-03T00:00:00', '2024-06-06T00:00:00', 'Finalitzat', 'No')], '2026-10-15')
+        self.assertEqual([(r['end'], r['endIssue'], r['extendable']) for r in records], [('2024-12-31', None, True), (None, 'absent', False), (None, 'sentinella', None), ('2024-06-06', 'anterior a l’inici', False)])
+        self.assertTrue(all(r['url'].startswith('https://') and r['code'] in r['url'] for r in records))
+        with self.assertRaises(ValueError):
+            m.normalize_agreements([row('CONV2400001', None, None), row('CONV2400001', None, None)], '2026-10-15')
+
     def test_new_section_is_summarised_once(self):
         data = self.catalog()
         with self.temporary_root() as d:

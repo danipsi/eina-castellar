@@ -3,13 +3,13 @@ import {date, money} from './lib';
 import {selectRecord, updateRoute, useRoute} from './routes';
 import {Badge, Empty, Original, Pagination, ShareLink} from './ui';
 
-const sources: Record<string, string> = {contracts: 'Contractació', events: 'Execució contractual', budget: 'Pressupost', sessions: 'Sessions', suppliers: 'Proveïdors'};
-const fieldNames: Record<string, string> = {amountCents: 'Import', initialCents: 'Inicial', finalCents: 'Definitiu', executedCents: 'Liquidat', year: 'Exercici', date: 'Data', chapter: 'Capítol', title: 'Títol', supplier: 'Adjudicatari', agenda: 'Ordre del dia', procedure: 'Procediment', status: 'Estat', type: 'Tipus', lot: 'Lot', url: 'Font original', expedient: 'Expedient', flags: 'Observacions', vat: 'Base d’IVA', chapterName: 'Nom del capítol', side: 'Ingressos o despeses', initialUrl: 'Font del pressupost', liquidationUrl: 'Font de la liquidació', body: 'Òrgan', name: 'Emissor', category: 'Tipus d’emissor', emitters: 'Emissors', invoices: 'Factures', invoicedCents: 'Import facturat', maxInvoiceCents: 'Factura més alta', firstDate: 'Primera factura', lastDate: 'Darrera factura'};
+const sources: Record<string, string> = {contracts: 'Contractació', events: 'Execució contractual', budget: 'Pressupost', sessions: 'Sessions', suppliers: 'Proveïdors', grants: 'Subvencions', agreements: 'Convenis'};
+const fieldNames: Record<string, string> = {amountCents: 'Import', initialCents: 'Inicial', finalCents: 'Definitiu', executedCents: 'Liquidat', year: 'Exercici', date: 'Data', chapter: 'Capítol', title: 'Títol', supplier: 'Adjudicatari', agenda: 'Ordre del dia', procedure: 'Procediment', status: 'Estat', type: 'Tipus', lot: 'Lot', url: 'Font original', expedient: 'Expedient', flags: 'Observacions', vat: 'Base d’IVA', chapterName: 'Nom del capítol', side: 'Ingressos o despeses', initialUrl: 'Font del pressupost', liquidationUrl: 'Font de la liquidació', body: 'Òrgan', name: 'Emissor', category: 'Tipus d’emissor', emitters: 'Emissors', invoices: 'Factures', invoicedCents: 'Import facturat', maxInvoiceCents: 'Factura més alta', firstDate: 'Primera factura', lastDate: 'Darrera factura', call: 'Acord', agreement: 'Conveni citat', beneficiary: 'Beneficiari', grants: 'Concessions', repeated: 'Files idèntiques', code: 'Codi', description: 'Descripció', start: 'Inici', end: 'Fi', endIssue: 'Incidència de la data de fi', extendable: 'Prorrogable'};
 function value(field: string, data: string | number | null | undefined) {
   if (data === undefined) return '—';
   if (data === null) return 'No informat';
   if (field.endsWith('Cents') && typeof data === 'number') return money(data);
-  if (field === 'date' && typeof data === 'string') return date(data);
+  if (['date', 'start', 'end'].includes(field) && typeof data === 'string') return date(data);
   return String(data);
 }
 
@@ -18,6 +18,8 @@ function currentRecord(data: Catalog, change: CatalogChange) {
   if (change.source === 'sessions') {const item = data.sessions.find(r => r.id === change.recordId); if (item) return {title: item.title, url: item.url, selection: {kind: 'session', item} as Selection};}
   if (change.source === 'budget') {const item = data.budget.find(r => r.id === change.recordId); if (item) return {title: `${item.year} · ${item.side} · ${item.chapterName}`, url: item.url, selection: {kind: 'budget', item} as Selection};}
   if (change.source === 'suppliers') {const item = data.suppliers?.find(r => r.id === change.recordId); if (item) return {title: `${item.year} · ${item.name ?? 'Emissors sense nom publicat'}`, url: item.url};}
+  if (change.source === 'grants') {const item = data.grants?.find(r => r.id === change.recordId); if (item) return {title: `${date(item.date)} · ${item.beneficiary ?? 'Concessions sense nom publicat'}`, url: item.url};}
+  if (change.source === 'agreements') {const item = data.agreements?.find(r => r.id === change.recordId); if (item) return {title: `${item.code} · ${item.title}`, url: item.url};}
   if (change.source === 'events') {
     const event = data.events.find(r => r.id === change.recordId);
     if (event) {

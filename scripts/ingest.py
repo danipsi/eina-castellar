@@ -62,9 +62,13 @@ INVOICES_DATASET = 'https://dadesobertes.seu-e.cat/dataset/castellardelvalles-fa
 # jurídiques amb denominació pròpia: societats civils i comunitats de béns poden dur noms de persones.
 NIF_CATEGORIES = {**dict.fromkeys('AB', 'societat'), 'F': 'cooperativa', 'U': 'UTE', **dict.fromkeys('GR', 'entitat'), **dict.fromkeys('PQS', 'administració o ens públic'), **dict.fromkeys('NVW', 'altres persones jurídiques')}
 UNNAMED = 'sense nom publicat'
+GRANTS_ID = '30798421-5952-4420-a769-d1121beb6534'
+GRANTS_DATASET = 'https://dadesobertes.seu-e.cat/dataset/cc-c-concessions-subvencions-i-ajuts-minhap'
+AGREEMENTS_ID = 'a2ca7c35-3afa-41f4-87e6-1d1645d0291a'
+AGREEMENTS_DATASET = 'https://dadesobertes.seu-e.cat/dataset/castellardelvalles-convenis-col-laboracio'
 PRIVATE = re.compile(r'\b(?:\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', re.I)
 SENSITIVE = re.compile(r'assetjament|discapaci|dependència|vulnerab|violència|ajut.{0,20}(?:social|urgència)|expedient.{0,20}disciplin|dades personals|menors d.edat|servei.{0,20}psico', re.I)
-SECTIONS = ('contracts', 'events', 'budget', 'sessions', 'suppliers')
+SECTIONS = ('contracts', 'events', 'budget', 'sessions', 'suppliers', 'grants', 'agreements')
 CHANGE_KINDS = {'nous', 'modificats', 'no observats'}
 
 def stamp():
@@ -292,6 +296,60 @@ def normalize_suppliers(invoices, providers, capture, period=PERIOD):
         records.append({'id': f'supplier-{year}-' + (stable(raw) if named else 'altres'), 'year': year, 'name': clean(raw) if named else None, 'category': g['category'] if named else UNNAMED, 'emitters': len(g['names']), 'invoices': g['invoices'], 'invoicedCents': g['invoicedCents'], 'maxInvoiceCents': g['maxInvoiceCents'], 'firstDate': min(g['dates'], default=None), 'lastDate': max(g['dates'], default=None), 'url': url, 'capturedAt': capture})
     return sorted(records, key=lambda r: r['id']), all(invoiced[y] == listed[y] for y in invoiced | listed)
 
+def split_beneficiary(value):
+    """(categoria, nom) a partir de «NIF NOM». El NIF no es publica; les persones físiques el tenen emmascarat."""
+    head, _, name = re.sub(r'\s+', ' ', str(value or '')).strip().partition(' ')
+    category = nif_category(head)
+    # Societats civils (J) i comunitats de béns (E) poden dur noms de persones: com a la resta de fonts, sense nom.
+    return (category, name.strip()) if category and head[:1].upper() not in 'JE' and name.strip() and not PRIVATE.search(name) else (None, None)
+
+def normalize_grants(rows, capture, period=PERIOD):
+    """Concessions atorgades per l'Ajuntament. Retorna (registres, files idèntiques comptades una vegada)."""
+    years = period_years(period)
+    seen, records, repeated = {}, {}, 0
+    for r in rows:
+        day = iso(r['DATA_DE_CONCESSIO'])
+        if not day or int(day[:4]) not in years: continue
+        amount = cents(r['IMPORT'])
+        if amount is None: raise ValueError('Concessió sense import')
+        call, raw = re.sub(r'\s+', ' ', str(r['TITOL'] or '')).strip(), str(r['BENEFICIARI'] or '').strip()
+        # La font repeteix files senceres (p. ex. bona part d'una convocatòria del 2022): es compten una sola vegada.
+        row_key = (day, call, raw, amount)
+        if row_key in seen:
+            seen[row_key]['repeated'] += 1; repeated += 1
+            continue
+        category, name = split_beneficiary(raw)
+        # Les concessions sense nom publicat s'agreguen per acord i data.
+        group = row_key if name else (day, call, None, None)
+        record = records.get(group)
+        if record is None:
+            agreement = re.search(r'\bCONV\d{7}\b', call.upper())
+            url = CKAN + urllib.parse.urlencode({'resource_id': GRANTS_ID, 'filters': json.dumps({'CODI_ENS': '805170005', 'DATA_DE_CONCESSIO': day}), 'limit': 500}) if name else GRANTS_DATASET
+            record = records[group] = {'id': 'grant-' + stable(*group), 'year': int(day[:4]), 'date': day, 'call': public_title(call), 'procedure': 'convocatòria' if re.search(r'convo[cq]', call, re.I) else 'sense convocatòria', 'agreement': agreement[0] if agreement else None, 'beneficiary': clean(name) if name else None, 'category': category if name else UNNAMED, 'grants': 0, 'amountCents': 0, 'repeated': 0, 'url': url, 'capturedAt': capture}
+        record['grants'] += 1; record['amountCents'] += amount
+        seen[row_key] = record
+    return sorted(records.values(), key=lambda r: r['id']), repeated
+
+def agreement_day(value):
+    # Hi ha dates sentinella (1900): no són una vigència real.
+    d = iso(value)
+    return (None, 'sentinella') if d and d < '1950' else (d, None if d else 'absent')
+
+def normalize_agreements(rows, capture):
+    records = []
+    for r in rows:
+        code = str(r['CODI_EXPEDIENT'] or '').strip().upper()
+        if not re.fullmatch(r'CONV\d{7}', code): raise ValueError('Codi de conveni inesperat')
+        start = agreement_day(r['DATA_INICI'])[0]
+        end, end_issue = agreement_day(r['DATA_FINAL'])
+        if start and end and end < start: end_issue = 'anterior a l’inici'
+        extendable = {'si': True, 's': True, 'no': False, 'n': False}.get(re.sub(r'[^a-z]', '', str(r['PRORROGABLE'] or '').lower().replace('í', 'i')))
+        title = public_title(r['TITOL'])
+        description = public_title(r['DESCRIPCIO']) if r['DESCRIPCIO'] else None
+        records.append({'id': 'agreement-' + code, 'code': code, 'title': title, 'description': description if description != title else None, 'start': start, 'end': end, 'endIssue': end_issue, 'status': clean(r['ESTAT']) or 'No informat', 'extendable': extendable, 'url': CKAN + urllib.parse.urlencode({'resource_id': AGREEMENTS_ID, 'filters': json.dumps({'CODI_EXPEDIENT': code})}), 'capturedAt': capture})
+    if len({r['id'] for r in records}) != len(records): raise ValueError('Codi de conveni duplicat')
+    return sorted(records, key=lambda r: r['id'])
+
 def parse_session_list(text, capture, body, period=PERIOD):
     pattern = r'<div class="title" title="([^"]+)"[^>]*>([\s\S]*?)href="(https://actes\.castellarvalles\.cat/session/sessionDetail/[a-f0-9]+)"'
     records = []
@@ -371,6 +429,7 @@ def collect(period=PERIOD):
         'events': lambda: socrata('8idu-wkjv', "codi_organ='3411306'", 'codi_organ,codi_expedient,numero_lot,tipus_actuacio_execucio,denominacio_actuacio,data,import_sense_iva,url_json'),
         'initial': lambda: ckan(BUDGET_ID), 'liq': lambda: ckan(LIQ_ID),
         'invoices': lambda: ckan(INVOICES_ID), 'providers': lambda: ckan(PROVIDERS_ID),
+        'grants': lambda: ckan(GRANTS_ID), 'agreements': lambda: ckan(AGREEMENTS_ID),
     }
     with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {name: pool.submit(job) for name, job in jobs.items()}
@@ -382,6 +441,9 @@ def collect(period=PERIOD):
     sessions = collect_sessions(capture, period)
     suppliers, reconciled = normalize_suppliers(raw['invoices'], raw['providers'], capture, period)
     named = sum(1 for s in suppliers if s['name'])
+    grants, repeated_grants = normalize_grants(raw['grants'], capture, period)
+    agreements = normalize_agreements(raw['agreements'], capture)
+    first_agreement = min((a['start'] for a in agreements if a['start']), default=None)
     counts = Counter(c['source'] for c in contracts)
     full_period = period_label(period)
     liquidation_period = period_label(period, liquidation=True)
@@ -393,15 +455,17 @@ def collect(period=PERIOD):
         source('budget', 'Pressupost i liquidació · AOC', 'https://dadesobertes.seu-e.cat/dataset/liquidacio-del-pressupost-execucio-per-capitols', len(budget), f'Pressupost inicial {full_period}; liquidacions {liquidation_period}.', 'Classificació econòmica, nivell 1. La captura inicial exigeix els capítols 1–9 per any i costat. Els imports nuls i els capítols absents de la liquidació queden sense import, no a zero. Font Generalitat/AOC; atribució indicada als registres.', capture, 'partial' if budget_partial else 'ok'),
         source('sessions', 'Portal municipal d’àudio vídeo actes', ACTES + '/session/portadaPublica', len(sessions), f'Catàleg de plens i juntes {full_period}. Índex contrastat amb consultes anuals.', 'Només punts dels plens que superen el filtre preventiu; JGL només metadades i enllaç. No transcriu vídeos ni acredita votacions. Els ordres del dia tenen cobertura parcial per privacitat i estructura del portal. Documents originals subjectes a les condicions municipals.', capture, 'partial'),
         source('suppliers', 'Registre de factures i relació de proveïdors', INVOICES_DATASET, named, f'Factures registrades {full_period} · exercici que informa la font; l’any en curs és parcial.', 'Factures agregades per emissor i exercici, amb IVA tal com consten. Només es publiquen noms de persones jurídiques amb denominació pròpia (tipus deduït de la lletra del NIF, que no es publica); persones físiques, societats civils i comunitats de béns s’agreguen per exercici sense nom. ' + ('Els totals per exercici quadren amb la relació anual de proveïdors.' if reconciled else 'Els totals per exercici no quadren amb la relació anual de proveïdors: consulta les fonts originals.') + ' Registrar una factura no acredita el pagament. Font Ajuntament/AOC; llicència cc-by.', capture, 'ok' if reconciled else 'partial'),
+        source('grants', 'Concessions de subvencions · MINHAP/AOC', GRANTS_DATASET, sum(g['grants'] for g in grants), f'Concessions atorgades per l’Ajuntament {full_period}, per data de concessió; la font comença el maig del 2022.', 'Rèplica de la Base de Dades Nacional de Subvencions. Només es publiquen noms de persones jurídiques amb denominació pròpia (tipus deduït de la lletra del NIF, que no es publica); les concessions a persones físiques, societats civils i comunitats de béns s’agreguen per acord sense nom. ' + (f'{repeated_grants} files idèntiques (mateixa data, acord, beneficiari i import) es compten una sola vegada. ' if repeated_grants else '') + 'El procediment (amb convocatòria o sense) es dedueix del títol de l’acord. Font Ministeri d’Hisenda/AOC; llicència cc-zero.', capture),
+        source('agreements', 'Convenis de col·laboració · Ajuntament', AGREEMENTS_DATASET, len(agreements), f'Tots els convenis que publica la font (inicis des del {first_agreement[:4] if first_agreement else "—"}), no només els del període.', 'Codi, títol, vigència, estat i si és prorrogable, tal com els declara l’Ajuntament; la font no informa imports ni signants. Les dates sentinella (1900) i les absents queden sense data. Un conveni «en curs» amb la data de fi passada pot tenir una pròrroga que no hi consta. Font Ajuntament/AOC; la fitxa no especifica llicència: es reprodueixen només metadades amb l’enllaç a l’original.', capture, 'partial'),
     ]
-    return {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'suppliers': suppliers, 'sources': sources, 'changes': []}
+    return {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'suppliers': suppliers, 'grants': grants, 'agreements': agreements, 'sources': sources, 'changes': []}
 
 def safe_change_value(field, value):
     if field.endswith('Cents'):
         return value is None or (isinstance(value, int) and not isinstance(value, bool) and abs(value) <= 2**53)
-    if field in ('year', 'invoices', 'emitters'):
+    if field in ('year', 'invoices', 'emitters', 'grants', 'repeated'):
         return value is None or (isinstance(value, int) and not isinstance(value, bool))
-    if field == 'date':
+    if field in ('date', 'start', 'end'):
         if value is None: return True
         if not isinstance(value, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', value): return False
         try: date.fromisoformat(value)

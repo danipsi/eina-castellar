@@ -11,7 +11,11 @@ export type Source = {id: string; name: string; url: string; status: 'ok' | 'par
 export type CatalogChange = {date: string; source: string; kind: string; description: string; recordId?: string; fields?: {field: string; before?: string | number | null; after?: string | number | null}[]};
 // Factures agregades per emissor i exercici. name és null en la fila que agrupa els emissors sense nom publicat.
 export type SupplierYear = {id: string; year: number; name: string | null; category: string; emitters: number; invoices: number; invoicedCents: number; maxInvoiceCents: number; firstDate: string | null; lastDate: string | null; url: string; capturedAt: string};
-export type Catalog = {schemaVersion: 1; generatedAt: string; contracts: Contract[]; events: ContractEvent[]; budget: BudgetRow[]; sessions: Session[]; suppliers?: SupplierYear[]; sources: Source[]; changes: CatalogChange[]};
+// Concessions de subvenció. beneficiary és null en les files que agreguen, per acord, les concessions sense nom publicat.
+export type Grant = {id: string; year: number; date: string; call: string; procedure: 'convocatòria' | 'sense convocatòria'; agreement: string | null; beneficiary: string | null; category: string; grants: number; amountCents: number; repeated: number; url: string; capturedAt: string};
+// Convenis tal com els declara l'Ajuntament. endIssue explica per què end és null o incoherent.
+export type Agreement = {id: string; code: string; title: string; description: string | null; start: string | null; end: string | null; endIssue: 'absent' | 'sentinella' | 'anterior a l’inici' | null; status: string; extendable: boolean | null; url: string; capturedAt: string};
+export type Catalog = {schemaVersion: 1; generatedAt: string; contracts: Contract[]; events: ContractEvent[]; budget: BudgetRow[]; sessions: Session[]; suppliers?: SupplierYear[]; grants?: Grant[]; agreements?: Agreement[]; sources: Source[]; changes: CatalogChange[]};
 export type Evidence = {id: string; kind: 'contract' | 'session' | 'budget'; title: string; url: string; source: string; capturedAt: string; locator: string; addedAt?: string};
 export type Note = {id: string; text: string; kind: 'nota' | 'pregunta' | 'hipòtesi'; status: 'pendent' | 'contrastada' | 'descartada'; author?: string; updatedAt?: string};
 export type RequestKind = 'informacio' | 'pregunta' | 'prec';
@@ -19,4 +23,4 @@ export type RequestStatus = 'esborrany' | 'presentada' | 'resposta' | 'resposta 
 export type FormalRequest = {id: string; kind: RequestKind; text: string; createdAt: string; status: RequestStatus; presentedAt: string | null; registry: string; updatedAt?: string};
 export type Dossier = {id: string; title: string; createdAt: string; updatedAt: string; evidence: Evidence[]; notes: Note[]; requests?: FormalRequest[]; revision?: number; deleted?: Record<string, string>};
 export type Selection = {kind: 'contract'; item: Contract} | {kind: 'session'; item: Session} | {kind: 'budget'; item: BudgetRow};
-export type Page = 'overview' | 'contracts' | 'suppliers' | 'budget' | 'sessions' | 'motions' | 'dossiers' | 'sources' | 'search';
+export type Page = 'overview' | 'contracts' | 'suppliers' | 'grants' | 'budget' | 'sessions' | 'motions' | 'dossiers' | 'sources' | 'search';

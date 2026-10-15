@@ -1,3 +1,4 @@
+import {ArrowRight} from 'lucide-react';
 import type {BudgetRow, Catalog, Peers} from './types';
 import {csv, download, money, number, pct} from './lib';
 import {updateRoute, useRoute} from './routes';
@@ -57,5 +58,31 @@ export function PeerComparison({data, year, side}: {data: Catalog; year: number;
     </>}
     <div className="calculation-note"><Badge tone="blue">Com llegir-ho</Badge><p>Import per habitant = import del capítol de l’ajuntament / població a 1 de gener del mateix any (padró de l’Idescat).{populationYears.length > 0 && ` Per a ${year} s’usa la població de ${populationYears.join(', ')}, la darrera publicada.`} El grup es fixa amb el padró de {peers.populationYear} ({self.name}: {number(self.population[String(peers.populationYear)] ?? 0)} habitants). El total suma els capítols que informa cada municipi (cal que n’informi almenys els capítols de l’1 al 4). Un capítol no informat (sovint el 5, el 7, el 8 o el 9, quan no hi ha crèdit) no s’hi suma i, a la fila d’aquell capítol, el municipi queda fora del càlcul. Són xifres de l’ajuntament sense els ens dependents: si un servei el presta una empresa municipal, un consorci o la mancomunitat, la despesa pot quedar en un altre capítol (transferències) o fora del pressupost. Imports nominals. Una posició alta o baixa és un motiu per preguntar, no una conclusió.</p></div>
     <p className="info-line"><Original url={peers.populationUrl}>Padró municipal · Idescat</Original> <Original url={metric === 'initialCents' ? peers.initialUrl : peers.liquidationUrl}>{metric === 'initialCents' ? 'Pressupostos · AOC' : 'Liquidacions · AOC'}</Original></p>
+  </section>;
+}
+
+const SNAPSHOT: PeerChapter[] = ['total', '1', '2', '6'];
+
+// Darrer exercici de despeses amb liquidació comparable de Castellar; si no n'hi ha cap, el darrer pressupost inicial.
+export function latestPeerYear(peers: Peers): {year: number; metric: PeerMetric} | null {
+  const years = [...new Set(peers.rows.filter(r => r.code === peers.self && r.side === 'despeses').map(r => r.year))].sort((a, b) => b - a);
+  for (const metric of ['executedCents', 'initialCents'] as const) for (const year of years) {
+    const total = peerStats(peers, year, 'despeses', metric, 'total');
+    if (total.self && total.values.length >= 2) return {year, metric};
+  }
+  return null;
+}
+
+export function PeerSnapshot({data}: {data: Catalog}) {
+  const peers = data.peers, latest = peers ? latestPeerYear(peers) : null;
+  if (!peers || !latest) return null;
+  const {year, metric} = latest;
+  const names = new Map(data.budget.filter(r => r.year === year && r.side === 'despeses').map(r => [r.chapter, r.chapterName]));
+  const rows = SNAPSHOT.map(c => peerStats(peers, year, 'despeses', metric, c));
+  return <section className="panel peer-snapshot" aria-labelledby="peer-snapshot-title">
+    <div className="panel-heading"><div><h2 id="peer-snapshot-title">Castellar entre municipis similars</h2><p>Despesa {metric === 'executedCents' ? 'liquidada' : 'pressupostada inicial'} per habitant · {year} · municipis de {number(peers.range[0])} a {number(peers.range[1])} habitants</p></div></div>
+    <div className="table-scroll"><table className="peer-table"><caption className="sr-only">Despesa per habitant de Castellar, mediana del grup i posició, {year}</caption><thead><tr><th>Capítol</th><th className="numeric">Castellar</th><th className="numeric">Posició</th></tr></thead>
+      <tbody>{rows.map(s => {const diff = versusMedian(s.self?.perCapita ?? null, s.median); return <tr key={s.chapter} className={s.chapter === 'total' ? 'total-row' : ''}><td>{s.chapter === 'total' ? <strong>Total</strong> : <><strong>{s.chapter}.</strong> {names.get(s.chapter) ?? `Capítol ${s.chapter}`}</>}</td><td className="numeric"><strong>{perCapita(s.self?.perCapita ?? null)}</strong><small>{diff !== null && `${signedPct(diff)} · `}<span className="nowrap">mediana {perCapita(s.median)}</span></small></td><td className="numeric">{s.rank ? `${s.rank} de ${s.values.length}` : 'No calculable'}<Strip stats={s} self={peers.self}/></td></tr>;})}</tbody></table></div>
+    <div className="panel-bottom"><p className="small muted">Posició 1 = la despesa per habitant més alta. Una posició alta o baixa és un motiu per preguntar, no una conclusió.</p><a className="text-button" href={`#budget?year=${year}&peer=${metric}&seccio=municipis`}>Comparació completa<ArrowRight size={14}/></a></div>
   </section>;
 }

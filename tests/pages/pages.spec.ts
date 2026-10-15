@@ -1,5 +1,7 @@
 import {test, expect} from '@playwright/test';
 
+const basePath = process.env.PAGES_BASE ?? '/eina-castellar/';
+
 test('el paquet de producció carrega sota el nom del repositori', async ({page}) => {
   const errors: string[] = [];
   const failed: string[] = [];
@@ -7,7 +9,7 @@ test('el paquet de producció carrega sota el nom del repositori', async ({page}
   page.on('response', response => {if (response.status() >= 400) failed.push(response.url());});
   await page.goto('./');
   await expect(page.getByRole('heading', {name: 'La informació pública, connectada.'})).toBeVisible();
-  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/eina-castellar/favicon.svg');
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', `${basePath}favicon.svg`);
   const data = await page.request.get('./data/catalog.json');
   expect(data.ok()).toBe(true);
   await page.goto('./#contracts');
@@ -16,7 +18,7 @@ test('el paquet de producció carrega sota el nom del repositori', async ({page}
   await page.goto('./#search?q=CONT2400054');
   await expect(page.locator('.subtitle')).toContainText('coincidències exactes del codi');
   await page.getByRole('button', {name: /PSCP · CONT2400054 · lot 1/}).click();
-  expect(new URL(page.url()).pathname).toBe('/eina-castellar/');
+  expect(new URL(page.url()).pathname).toBe(basePath);
   await page.reload();
   await expect(page.getByRole('dialog')).toContainText('CONT2400054');
   await page.keyboard.press('Escape');
@@ -24,7 +26,7 @@ test('el paquet de producció carrega sota el nom del repositori', async ({page}
   await expect(page.getByRole('region', {name: 'Comparació pressupostària'})).toBeVisible();
   await expect(page.getByLabel('Magnitud de comparació')).toHaveValue('initialCents');
   await page.setViewportSize({width: 1440, height: 1200});
-  await page.screenshot({path: 'docs/captures/comparacio-anual.png'});
+  await page.screenshot({path: 'test-results/pages-comparacio-anual.png'});
   expect(errors).toEqual([]);
   expect(failed).toEqual([]);
 });

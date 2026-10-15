@@ -2,12 +2,14 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 import {Activity, ArrowRight, ArrowUpRight, Bell, BookOpen, CalendarDays, Check, ChevronRight, Database, FileText, FolderOpen, LayoutDashboard, Menu, Search, ShieldCheck, Wallet, X} from 'lucide-react';
 import type {Catalog, Dossier, Evidence, Page, Selection} from './types';
 import {budgetTotal, compactMoney, date, evidenceFor, exactResults, isFutureDate, looksLikeExpedient, makeSearch, number, pct, ratio, today} from './lib';
-import {readDossiers, removeDossier, writeDossier} from './storage';
+import {DossierConflict, readDossiers, removeDossier, writeDossier} from './storage';
+import {useNoteDrafts} from './drafts';
 import {ContractTable, Contracts, Budget, Detail, Sessions, Stat} from './Explorer';
 import {Dossiers, SaveEvidence} from './Dossiers';
 import {Badge, Empty, Modal, Original, PageTitle, ShareLink} from './ui';
 import {routeSelection, selectRecord, updateRoute, useRoute} from './routes';
 import {Changes} from './Changes';
+import {PERIOD_LABEL} from './period';
 
 const pages: {id: Page; label: string; icon: typeof Search}[] = [{id: 'overview', label: 'Visió general', icon: LayoutDashboard}, {id: 'contracts', label: 'Contractació', icon: FileText}, {id: 'budget', label: 'Pressupost', icon: Wallet}, {id: 'sessions', label: 'Sessions', icon: CalendarDays}, {id: 'dossiers', label: 'Dossiers', icon: FolderOpen}, {id: 'sources', label: 'Fonts i qualitat', icon: Database}];
 
@@ -19,21 +21,40 @@ export function App() {
   const selection = routeSelection(data, route.params.get('record'));
   const [saving, setSaving] = useState<Evidence | null>(null);
   const [dossiers, setDossiers] = useState<Dossier[]>([]), [storageError, setStorageError] = useState(''), [toast, setToast] = useState('');
+  const [dossiersLoading, setDossiersLoading] = useState(true);
+  const noteDrafts = useNoteDrafts();
   const [updateStatus, setUpdateStatus] = useState<{status?: string; message?: string; error?: string; attemptedAt?: string} | null>(null);
   const searchRef = useRef<HTMLInputElement>(null), mainRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const abort = new AbortController();
     fetch(`${import.meta.env.BASE_URL}data/catalog.json`, {signal: abort.signal}).then(r => {if (!r.ok) throw new Error(); return r.json();}).then(d => {if (d.schemaVersion !== 1 || !Array.isArray(d.contracts) || !Array.isArray(d.budget) || !Array.isArray(d.sources) || !Array.isArray(d.events) || !Array.isArray(d.sessions)) throw new Error(); setData(d);}).catch(e => {if (e.name !== 'AbortError') setError('No s’han pogut carregar les dades. Torna a carregar la pàgina o comprova que el paquet de dades estigui disponible.');});
     fetch(`${import.meta.env.BASE_URL}data/status.json`, {signal: abort.signal}).then(r => r.ok ? r.json() : null).then(setUpdateStatus).catch(() => {});
-    readDossiers().then(setDossiers).catch(e => setStorageError(e.message));
+    readDossiers().then(setDossiers).catch(e => setStorageError(e.message)).finally(() => setDossiersLoading(false));
     return () => abort.abort();
   }, []);
   useEffect(() => {setQuery(searchQuery); setMenu(false); window.scrollTo(0, 0); requestAnimationFrame(() => mainRef.current?.querySelector<HTMLHeadingElement>('h1')?.focus());}, [route.page, searchQuery]);
   useEffect(() => {const handle = (e: KeyboardEvent) => {if ((e.ctrlKey || e.metaKey) && e.key === 'k') {e.preventDefault(); searchRef.current?.focus();}}; window.addEventListener('keydown', handle); return () => window.removeEventListener('keydown', handle);}, []);
   useEffect(() => {if (!toast) return; const timer = setTimeout(() => setToast(''), 3500); return () => clearTimeout(timer);}, [toast]);
   function go(page: Page, q = '') {location.hash = page + (q ? `?q=${encodeURIComponent(q)}` : '');}
-  async function saveDossier(d: Dossier) {await writeDossier(d); setDossiers(old => [d, ...old.filter(x => x.id !== d.id)]); setToast('Dossier desat en aquest navegador');}
-  async function deleteDossier(id: string) {await removeDossier(id); setDossiers(old => old.filter(x => x.id !== id)); setToast('Dossier eliminat');}
+  async function refreshAfterConflict(error: unknown) {
+    if (error instanceof DossierConflict) {
+      try {setDossiers(await readDossiers());} catch (e) {setStorageError((e as Error).message);}
+    }
+    throw error;
+  }
+  async function saveDossier(d: Dossier) {
+    try {
+      const saved = await writeDossier(d);
+      setDossiers(old => [saved, ...old.filter(x => x.id !== d.id)]);
+      setToast('Dossier desat en aquest navegador');
+    } catch (error) {await refreshAfterConflict(error);}
+  }
+  async function deleteDossier(d: Dossier) {
+    try {
+      await removeDossier(d); setDossiers(old => old.filter(x => x.id !== d.id));
+      setToast('Dossier eliminat');
+    } catch (error) {await refreshAfterConflict(error);}
+  }
   const sourceStale = data ? (Date.now() - Date.parse(data.generatedAt)) > 8 * 24 * 3600 * 1000 : false;
   const failedUpdate = updateStatus && ['error', 'failed'].includes(updateStatus.status ?? '');
   return <div className="app-shell"><a className="skip-link" href="#main-content" onClick={e => {e.preventDefault(); mainRef.current?.focus();}}>Salta al contingut</a>
@@ -42,13 +63,12 @@ export function App() {
     <div className="workspace"><header className="topbar"><button className="icon-button mobile-menu" aria-label="Obre el menú" onClick={() => setMenu(true)}><Menu size={21}/></button><span className="breadcrumb">Espai d’anàlisi<ChevronRight size={13}/><strong>{route.page === 'search' ? 'Cerca' : pages.find(p => p.id === route.page)?.label}</strong></span><form className="global-search" role="search" onSubmit={e => {e.preventDefault(); go('search', query);}}><Search size={17}/><input ref={searchRef} aria-label="Cerca global" placeholder="Cerca un tema o expedient…" value={query} onChange={e => setQuery(e.target.value)}/><kbd>Ctrl K</kbd></form><button className="icon-button updates-button" title="Novetats de les fonts" aria-label="Novetats de les fonts" onClick={() => go('sources')}><Bell size={18}/></button><span className="avatar" title="Espai personal local">OC</span></header>
       <main id="main-content" ref={mainRef} tabIndex={-1}>
         {(sourceStale || failedUpdate) && <div className="notice warning" role="status"><Activity size={18}/><p>{failedUpdate ? 'La darrera actualització no s’ha completat. Es conserva l’última captura vàlida.' : 'Aquesta captura té més de vuit dies. Consulta la data i la cobertura abans d’interpretar les dades.'} <button className="text-button" onClick={() => go('sources')}>Veure fonts</button></p></div>}
-        {error ? <Empty title="Dades no disponibles"><p>{error}</p><button className="button primary" onClick={() => location.reload()}>Torna a carregar</button></Empty> : !data ? <div className="loading" role="status"><span className="spinner"/><h1>Preparant l’Observatori</h1><p>Carregant les dades municipals i les seves fonts…</p></div> : <>
+        {route.page === 'dossiers' ? <>{error && <div className="notice warning" role="status"><p>Les dades públiques no estan disponibles. Pots continuar consultant i exportant els dossiers d’aquest navegador.</p></div>}{dossiersLoading ? <p role="status">Carregant els dossiers…</p> : <Dossiers dossiers={dossiers} onSave={saveDossier} onDelete={deleteDossier} storageError={storageError} drafts={noteDrafts.drafts} onDraftChange={noteDrafts.changeDraft} draftError={noteDrafts.error}/>}</> : error ? <Empty title="Dades no disponibles"><p>{error}</p><button className="button primary" onClick={() => location.reload()}>Torna a carregar</button><p><a href="#dossiers">Obre els dossiers locals</a></p></Empty> : !data ? <div className="loading" role="status"><span className="spinner"/><h1>Preparant l’Observatori</h1><p>Carregant les dades municipals i les seves fonts…</p></div> : <>
           {route.params.has('record') && !selection && <div className="notice warning" role="status"><p>Aquest registre no està disponible en la captura actual. Pot haver estat retirat o l’enllaç pot ser incorrecte. <button className="text-button" onClick={() => updateRoute({record: null})}>Tanca l’avís</button></p></div>}
           {route.page === 'overview' && <Overview data={data} dossiers={dossiers} go={go} onSelect={selectRecord}/>}
           {route.page === 'contracts' && <Contracts data={data} onSelect={selectRecord}/>}
           {route.page === 'budget' && <Budget data={data} onSelect={selectRecord}/>}
           {route.page === 'sessions' && <Sessions data={data} onSelect={selectRecord}/>}
-          {route.page === 'dossiers' && <Dossiers dossiers={dossiers} onSave={saveDossier} onDelete={deleteDossier} storageError={storageError}/>}
           {route.page === 'sources' && <Sources data={data}/>}
           {route.page === 'search' && <SearchResults data={data} query={route.q} onSelect={selectRecord}/>}
           <footer className="main-footer"><span>Observatori de Castellar · No és un portal oficial de l’Ajuntament</span><button onClick={() => go('sources')}>Captura {date(data.generatedAt)}<ArrowUpRight size={13}/></button></footer>
@@ -69,9 +89,9 @@ function Overview({data, dossiers, go, onSelect}: {data: Catalog; dossiers: Doss
   const recentSessions = [...data.sessions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3);
   const chapters = [...budget].sort((a, b) => (b.finalCents ?? 0) - (a.finalCents ?? 0)).slice(0, 4);
   const max = Math.max(1, ...chapters.map(c => c.finalCents ?? 0));
-  return <><PageTitle eyebrow="Observatori municipal · 2022–2026" title="La informació pública, connectada." actions={<span className="capture-label"><span className="status-dot"/>Captura {date(data.generatedAt)}</span>}>Explora què es contracta, com s’executa el pressupost i què es porta al ple.</PageTitle>
+  return <><PageTitle eyebrow={`Observatori municipal · ${PERIOD_LABEL}`} title="La informació pública, connectada." actions={<span className="capture-label"><span className="status-dot"/>Captura {date(data.generatedAt)}</span>}>Explora què es contracta, com s’executa el pressupost i què es porta al ple.</PageTitle>
     <section className="start-strip"><div className="orbit-mark"><Activity size={26}/></div><div><strong>Segueix el fil d’un expedient</strong><span>Contracte → sessions relacionades → fonts → dossier personal</span></div><button onClick={() => go('search', 'CONT2400054')}>Explora un cas real<ArrowRight size={16}/></button></section>
-    <div className="stats-grid"><Stat label="Expedients a la PSCP" value={number(new Set(contracts.map(c => c.expedient).filter(Boolean)).size)} detail={`${number(contracts.length)} observacions i lots · 2022–2026`}/><Stat label={`Despesa liquidada · ${Number.isFinite(latestClosed) ? latestClosed : '—'}`} value={compactMoney(executed)} detail={`${pct(ratio(executed, final))} del crèdit definitiu`} accent/><Stat label="Sessions al catàleg" value={number(data.sessions.length)} detail="Cobertura i exclusions a Fonts i qualitat"/><Stat label="Dossiers personals" value={number(dossiers.length)} detail="Desats només en aquest navegador"/></div>
+    <div className="stats-grid"><Stat label="Expedients a la PSCP" value={number(new Set(contracts.map(c => c.expedient).filter(Boolean)).size)} detail={`${number(contracts.length)} observacions i lots · ${PERIOD_LABEL}`}/><Stat label={`Despesa liquidada · ${Number.isFinite(latestClosed) ? latestClosed : '—'}`} value={compactMoney(executed)} detail={`${pct(ratio(executed, final))} del crèdit definitiu`} accent/><Stat label="Sessions al catàleg" value={number(data.sessions.length)} detail="Cobertura i exclusions a Fonts i qualitat"/><Stat label="Dossiers personals" value={number(dossiers.length)} detail="Desats només en aquest navegador"/></div>
     <div className="overview-grid"><section className="panel"><div className="panel-heading"><div><h2>On va el pressupost?</h2><p>Principals capítols de despesa · {Number.isFinite(latestClosed) ? latestClosed : 'sense liquidació'}</p></div><button className="icon-button" aria-label="Obre pressupost" onClick={() => go('budget')}><ArrowUpRight size={18}/></button></div><div className="overview-budget">{chapters.map(c => <button className="overview-budget-row" key={c.id} onClick={() => onSelect({kind: 'budget', item: c})}><span><strong>{c.chapterName}</strong><span>{compactMoney(c.executedCents)}</span></span><span className="overview-bar"><span className="track" style={{width: `${(c.finalCents ?? 0) / max * 100}%`}}/><span className="fill" style={{width: `${Math.min(100, (c.executedCents ?? 0) / max * 100)}%`}}/></span></button>)}</div><div className="panel-bottom"><div className="legend"><span><i className="final"/>Crèdit definitiu</span><span><i className="executed"/>Obligacions reconegudes</span></div><button className="text-button" onClick={() => go('budget')}>Veure detall<ArrowRight size={14}/></button></div></section>
     <section className="panel"><div className="panel-heading"><div><h2>Sessions recents</h2><p>Ordres del dia i documents originals</p></div><CalendarDays size={19} className="muted"/></div><div className="recent-sessions">{recentSessions.map(s => <button key={s.id} onClick={() => onSelect({kind: 'session', item: s})}><span className="date-tile"><strong>{s.date.slice(8, 10)}</strong><small>{new Intl.DateTimeFormat('ca-ES', {month: 'short'}).format(new Date(s.date))}</small></span><span><Badge>{s.body}</Badge><strong>{s.title}</strong><small>{s.agenda.length ? `${s.agenda.length} punts indexats` : 'Consulta el document original'}</small></span><ChevronRight size={16}/></button>)}</div><div className="panel-bottom"><button className="text-button" onClick={() => go('sessions')}>Totes les sessions<ArrowRight size={14}/></button></div></section></div>
     <section className="panel recent-contracts"><div className="panel-heading"><div><h2>Contractació publicada</h2><p>Registres PSCP ordenats per la data que informa la font</p></div><button className="text-button" onClick={() => go('contracts')}>Explora la contractació<ArrowRight size={14}/></button></div><ContractTable rows={recent} onSelect={onSelect} compact/>{futureCount > 0 && <p className="future-summary">{futureCount} registre amb data futura pendent de contrast, separat de la llista recent. <a href="#contracts?dates=future">Consulta’l</a></p>}</section>

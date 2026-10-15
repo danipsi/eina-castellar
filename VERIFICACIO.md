@@ -88,3 +88,18 @@ Implementació i verificació locals; aquest apartat no acredita una nova public
 - Inspecció visual de la comparació integrada en el disseny existent. Captura: `docs/captures/comparacio-anual.png`.
 
 No s’han actualitzat les dades municipals, reconstruït diferències històriques ni afegit subvencions, empreses, nous indicadors o un servei de notificacions. El lot públic de canvis és l’últim lot material, no un historial acumulatiu. Les versions privades de SQLite i l’historial de Git mantenen els límits de retirada ja documentats.
+
+## Correccions de la revisió · 15/10/2026
+
+Implementació local de les sis correccions i les dues millores de manteniment. No s’ha modificat la captura municipal ni publicat aquesta versió.
+
+- **Dossiers entre pestanyes:** comprovació de versió i escriptura dins de la mateixa transacció IndexedDB. Una còpia antiga no pot sobreescriure notes, eliminar canvis nous ni recrear un dossier eliminat. El conflicte actualitza la llista i conserva l’esborrany per revisar-lo i tornar a desar. Els dossiers anteriors sense camp de versió continuen editables.
+- **Accés independent:** consulta i còpia JSON disponibles tant amb error HTTP del catàleg com amb una resposta pendent.
+- **Esborranys:** text i tipus per dossier a la sessió de la pestanya; persisteixen entre seccions, dossiers i recàrregues. Avís abans de sortir amb text pendent. Si sessionStorage falla, es conserva el text en memòria i s’explica el límit. Un desament endarrerit no elimina esborranys posteriors. Els esborranys de dossiers eliminats es poden copiar o descartar amb confirmació.
+- **Pressupostos:** els totals exigeixen els nou capítols únics d’un mateix any i costat, amb tots els imports informats. El capturador rebutja la manca de qualsevol capítol inicial; les liquidacions absents continuen sent `null`, no zero.
+- **CSV:** els nombres negatius i decimals catalans validats conserven el valor numèric; les cadenes amb fórmules continuen neutralitzades.
+- **Llegibilitat:** textos secundaris i etiquetes de les targetes de portada a 12 px, amb contrast mínim 4,5:1 verificat. Captura mòbil revisada sense desbordament.
+- **Període:** configuració compartida Python/TypeScript a `config/period.json`, amb validació d’anys, filtres, consultes de sessions i etiquetes. Es manté 2022–2026 i liquidacions fins al 2025.
+- **Publicació:** GitHub Actions instal·la Chromium, comprova els fluxos abans de capturar i prova el paquet de producció amb la seva base URL abans de publicar. Els passos de publicació no s’executen si les proves fallen. L’execució remota d’aquest flux modificat continua pendent.
+
+Verificació executada: 16 proves Python, 22 escenaris de navegador i 2 de producció superats a Windows/Edge. La suite de navegador completa tenia 21 escenaris; després d’afegir el cas de desament endarrerit es van repetir els 8 del bloc de dossiers, i després el cas de descart d’esborranys recuperats. Compilació TypeScript/Vite correcta; es mantenen els avisos ja coneguts de `use client` de la biblioteca d’icones. `git diff --check` correcte. Proves noves a `tests/browser/dossiers-safety.spec.ts`, `tests/browser/data-integrity.spec.ts` i `tests/test_ingest.py`; dades fictícies per als casos de concurrència i pèrdua d’esborranys.

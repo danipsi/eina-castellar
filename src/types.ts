@@ -12,6 +12,6 @@ export type CatalogChange = {date: string; source: string; kind: string; descrip
 export type Catalog = {schemaVersion: 1; generatedAt: string; contracts: Contract[]; events: ContractEvent[]; budget: BudgetRow[]; sessions: Session[]; sources: Source[]; changes: CatalogChange[]};
 export type Evidence = {id: string; kind: 'contract' | 'session' | 'budget'; title: string; url: string; source: string; capturedAt: string; locator: string};
 export type Note = {id: string; text: string; kind: 'nota' | 'pregunta' | 'hipòtesi'; status: 'pendent' | 'contrastada' | 'descartada'};
-export type Dossier = {id: string; title: string; createdAt: string; updatedAt: string; evidence: Evidence[]; notes: Note[]};
+export type Dossier = {id: string; title: string; createdAt: string; updatedAt: string; evidence: Evidence[]; notes: Note[]; revision?: number};
 export type Selection = {kind: 'contract'; item: Contract} | {kind: 'session'; item: Session} | {kind: 'budget'; item: BudgetRow};
 export type Page = 'overview' | 'contracts' | 'budget' | 'sessions' | 'dossiers' | 'sources' | 'search';

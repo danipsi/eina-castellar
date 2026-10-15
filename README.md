@@ -12,7 +12,7 @@ MVP funcional d’exploració municipal, en català i amb estètica de tauler so
 - Cerca exacta d’expedients amb aproximacions opcionals; cerca temàtica MiniSearch i fitxes compartibles amb lots, fonts i cronologia.
 - Pressupostos 2022–2026 i liquidacions 2022–2025 per capítol econòmic, comparació anual d’inicial/definitiu/liquidat i exportació de diferències.
 - Catàleg Ple/JGL i punts indexats dels plens amb filtre preventiu de privacitat.
-- Dossiers IndexedDB amb notes, preguntes, hipòtesis, estat de revisió, còpia JSON, Markdown i impressió.
+- Dossiers IndexedDB amb notes, preguntes, hipòtesis, estat de revisió, còpia JSON, Markdown i impressió. Control de versions entre pestanyes, esborranys per dossier i accés independent del catàleg públic.
 - Fonts, cobertura, qualitat i detall dels registres nous o modificats del darrer lot de canvis entre captures. Els recomptes antics es mantenen sense inventar-ne detalls.
 
 ## Ordres
@@ -34,6 +34,10 @@ npm run test:pages
 ```
 
 Les proves de navegador utilitzen Microsoft Edge instal·lat i el port 4173. En un altre sistema es pot canviar `channel` a `playwright.config.ts` i instal·lar el navegador de Playwright. Simulació de fallada: `py -3.13 scripts/ingest.py --simulate-failure`; genera l’avís i conserva el catàleg. Una captura correcta elimina l’avís.
+
+GitHub Actions instal·la Chromium i executa les proves de navegador abans de capturar dades, i les proves del paquet de producció abans de publicar-lo. Les comprovacions de producció utilitzen la mateixa base `PAGES_BASE` que la compilació. Una fallada de les proves impedeix el desplegament.
+
+El període es configura una sola vegada a `config/period.json`: `startYear`, `endYear` i `latestLiquidationYear`. El capturador Python i la interfície comparteixen aquesta configuració validada. Els valors inicials són 2022, 2026 i 2025; no avancen automàticament amb el calendari. Després de canviar-los, cal completar una captura correcta i tornar a compilar abans de publicar. La captura exigeix els capítols pressupostaris inicials 1–9 per any i costat; si falten, es conserva la captura anterior. Els imports absents de liquidació continuen sent desconeguts.
 
 ## Estructura
 

@@ -24,7 +24,15 @@ export function exactResults(data: Catalog, query: string) {
   ];
 }
 export const safeUrl = (s: string) => {try {const u = new URL(s); return ['https:', 'http:'].includes(u.protocol) ? u.href : '#';} catch {return '#';}};
-export const budgetTotal = (rows: BudgetRow[], field: 'initialCents' | 'finalCents' | 'executedCents') => rows.length && rows.every(r => r[field] !== null) ? rows.reduce((sum, r) => sum + r[field]!, 0) : null;
+const BUDGET_CHAPTERS = new Set(Array.from({length: 9}, (_, index) => String(index + 1)));
+export function budgetTotal(rows: BudgetRow[], field: 'initialCents' | 'finalCents' | 'executedCents') {
+  if (rows.length !== BUDGET_CHAPTERS.size) return null;
+  const year = rows[0]?.year, side = rows[0]?.side;
+  const chapters = new Set(rows.map(row => row.chapter));
+  if (chapters.size !== BUDGET_CHAPTERS.size || [...chapters].some(chapter => !BUDGET_CHAPTERS.has(chapter))) return null;
+  if (rows.some(row => row.year !== year || row.side !== side || row[field] === null)) return null;
+  return rows.reduce((sum, row) => sum + row[field]!, 0);
+}
 export const ratio = (executed: number | null, total: number | null) => executed !== null && total !== null && total > 0 ? executed / total * 100 : null;
 export const pct = (n: number | null) => n === null ? 'No calculable' : new Intl.NumberFormat('ca-ES', {maximumFractionDigits: 1}).format(n) + '%';
 
@@ -56,7 +64,10 @@ export function download(name: string, content: string, type: string) {
 export function csv(rows: unknown[][]) {
   return '\ufeff' + rows.map(row => row.map(value => {
     let s = value === null || value === undefined ? '' : String(value);
-    if (/^[\s]*[=+@-]/.test(s)) s = "'" + s;
+    const validatedNumber = typeof value === 'number'
+      ? Number.isFinite(value)
+      : typeof value === 'string' && /^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?$/.test(value);
+    if (!validatedNumber && /^[\s]*[=+@-]/.test(s)) s = "'" + s;
     return '"' + s.replaceAll('"', '""') + '"';
   }).join(';')).join('\r\n');
 }

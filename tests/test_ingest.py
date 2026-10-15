@@ -26,6 +26,12 @@ class IngestTest(unittest.TestCase):
         staging.mkdir(parents=True, exist_ok=True)
         return tempfile.TemporaryDirectory(dir=staging)
 
+    def budget_rows(self, period=m.PERIOD):
+        return [{'ANY_EXERCICI':y,'TIPUS_PARTIDA':s,'TIPUS_CLASSIF':'E','NIVELL':'1','CODI_PANTALLA':str(c),'DESCRIPCIO':f'Capítol {c}','IMPORT':'100,00'} for y in m.period_years(period) for s in ['I','D'] for c in range(1,10)]
+
+    def liquidation_rows(self, years):
+        return [{'ANY_EXERCICI':y,'TIPUS_PARTIDA':s,'CODI_CAPITOL':str(c),'CAPITOL':f'Capítol {c}','IMPORT_PRESSU_FINAL':'120,00','IMPORT_LIQUIDAT':'90,00'} for y in years for s in ['I','D'] for c in range(1,10)]
+
     def test_amounts_dates_and_privacy(self):
         self.assertEqual(m.cents('2.642,20 €'), 264220)
         self.assertEqual(m.cents('2642.20'), 264220)
@@ -48,14 +54,71 @@ class IngestTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'truncada'): m.socrata('test', 'test', 'test', response)
 
     def test_budget_hierarchy_and_duplicate(self):
-        rows = [{'ANY_EXERCICI':y,'TIPUS_PARTIDA':s,'TIPUS_CLASSIF':'E','NIVELL':'1','CODI_PANTALLA':str(c),'DESCRIPCIO':f'Capítol {c}','IMPORT':'100,00'} for y in range(2022,2027) for s in ['I','D'] for c in range(1,10)]
+        rows = self.budget_rows()
         rows.append({**rows[0], 'NIVELL':'2','IMPORT':'99999,00'})
         rows.append({**rows[0], 'TIPUS_CLASSIF':'F','IMPORT':'99999,00'})
         normalized = m.normalize_budget(rows, [], '2026-10-13')
-        self.assertEqual(len(normalized),90)
-        self.assertEqual(sum(r['initialCents'] for r in normalized),900000)
+        expected_count = len(m.period_years()) * 2 * 9
+        self.assertEqual(len(normalized), expected_count)
+        self.assertEqual(sum(r['initialCents'] for r in normalized), expected_count * 10000)
         self.assertTrue(all(r['executedCents'] is None for r in normalized))
         with self.assertRaisesRegex(ValueError,'duplicat'): m.normalize_budget(rows + [rows[0]], [], '2026-10-13')
+
+    def test_budget_rejects_any_missing_initial_chapter(self):
+        period = m.validate_period({'startYear': 2022, 'endYear': 2026, 'latestLiquidationYear': 2025})
+        rows = self.budget_rows(period)
+        with self.assertRaisesRegex(ValueError, 'falten 1 combinacions'):
+            m.normalize_budget(rows[:-1], [], '2026-10-13', period)
+        reduced = [row for row in rows if not (row['ANY_EXERCICI'] in (2023, 2025) and row['TIPUS_PARTIDA'] == 'D' and row['CODI_PANTALLA'] == '9')]
+        with self.assertRaisesRegex(ValueError, 'falten 2 combinacions'):
+            m.normalize_budget(reduced, [], '2026-10-13', period)
+
+    def test_budget_keeps_partial_liquidations_and_null_values_explicit(self):
+        period = m.validate_period({'startYear': 2022, 'endYear': 2026, 'latestLiquidationYear': 2025})
+        initial = self.budget_rows(period)
+        initial[0]['IMPORT'] = None
+        liquidation = self.liquidation_rows([period['startYear']])
+        normalized = m.normalize_budget(initial, liquidation, '2026-10-13', period)
+        present = next(row for row in normalized if row['year'] == period['startYear'] and row['side'] == 'despeses' and row['chapter'] == '1')
+        absent = next(row for row in normalized if row['year'] == period['startYear'] + 1 and row['side'] == 'despeses' and row['chapter'] == '1')
+        null_initial = next(row for row in normalized if row['year'] == period['startYear'] and row['side'] == 'ingressos' and row['chapter'] == '1')
+        self.assertEqual((present['finalCents'], present['executedCents']), (12000, 9000))
+        self.assertEqual((absent['finalCents'], absent['executedCents']), (None, None))
+        self.assertIsNone(null_initial['initialCents'])
+        with self.assertRaisesRegex(ValueError, 'liquidat duplicat'):
+            m.normalize_budget(self.budget_rows(period), liquidation + [liquidation[0]], '2026-10-13', period)
+
+    def test_period_configuration_is_validated_and_drives_filters(self):
+        period = m.validate_period({'startYear': 2020, 'endYear': 2022, 'latestLiquidationYear': 2021})
+        self.assertEqual(list(m.period_years(period)), [2020, 2021, 2022])
+        self.assertEqual(list(m.period_years(period, liquidation=True)), [2020, 2021])
+        self.assertEqual(m.period_label(period), '2020–2022')
+        rows = self.budget_rows(period)
+        self.assertEqual(len(m.normalize_budget(rows, [], '2026-10-13', period)), 54)
+        contracts = m.normalize_contracts([{'row_id':'1','codi_organ':'3411306','data_adjudicacio_contracte':'2022-01-01','codi_expedient':'CONT2200001','denominacio':'Contracte de prova'}], [], '2026-10-13', period)
+        self.assertEqual([contract['year'] for contract in contracts], [2022])
+        with self.assertRaisesRegex(ValueError, 'ordre'):
+            m.validate_period({'startYear': 2025, 'endYear': 2024, 'latestLiquidationYear': 2024})
+
+    def test_session_queries_follow_the_configured_period(self):
+        period = m.validate_period({'startYear': 2020, 'endYear': 2022, 'latestLiquidationYear': 2021})
+        session_url = 'https://actes.castellarvalles.cat/session/sessionDetail/abc123'
+        listing = f'<div class="title" title="Sessió de prova">02/01/2022 12:00h <a href="{session_url}">Consulta</a></div>'
+        queried = []
+        original_get = m.get
+        def fake_get(url, json_response=True):
+            queried.append(url)
+            return '<span class="sessionSummary"></span>' if url == session_url else listing
+        try:
+            m.get = fake_get
+            sessions = m.collect_sessions('2026-10-13', period)
+        finally:
+            m.get = original_get
+        fragment_queries = [url for url in queried if '/session/fragmentCustom?' in url]
+        self.assertEqual(len(sessions), 2)
+        self.assertEqual(len(fragment_queries), 8)
+        self.assertTrue(any('startDate=01%2F01%2F2020' in url and 'endDate=31%2F12%2F2022' in url for url in fragment_queries))
+        self.assertFalse(any('2023' in url or '2026' in url for url in fragment_queries))
 
     def test_agenda_not_transcription(self):
         text = '<span class="sessionSummary"><p>6.- Aprovar modificació del contracte CONT2400054.</p><p>7.- Bonificació a persona de prova.</p></span></div><p>8.- Contracte fora de l’ordre del dia.</p>'

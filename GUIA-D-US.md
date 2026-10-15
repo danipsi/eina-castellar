@@ -37,6 +37,10 @@ La consulta funciona amb la captura inclosa; no cal actualitzar les dades per pr
 
 Els dossiers es desen a IndexedDB **només al navegador actual**. No se sincronitzen entre ordinadors, perfils, ports o dominis. Si es netegen les dades del navegador, es poden perdre. Descarrega periòdicament una còpia JSON i importa-la al navegador nou. La importació crea un dossier separat per evitar sobreescriure’n un d’existent.
 
+Pots consultar i exportar els dossiers encara que falli o s’endarrereixi la càrrega de les dades públiques. Si edites el mateix dossier en dues pestanyes, un canvi fet sobre una versió antiga queda bloquejat: es carrega la versió actual, es conserva l’esborrany i se’t demana revisar els canvis abans de tornar a desar. També es comprova la versió abans d’eliminar un dossier.
+
+El text i el tipus de cada nota pendent es conserven separadament per dossier, dins de la pestanya, quan canvies de secció o recarregues. **Prem «Afegeix nota» abans de tancar la pestanya**: un esborrany encara no forma part del dossier ni de la còpia JSON. El navegador avisa si intentes sortir amb text pendent. Si no permet desar esborranys per a una recàrrega, apareix un avís i el text es manté en memòria mentre la pàgina continuï oberta.
+
 Les notes personals no entren al paquet del web. No hi ha comptes ni un servidor de dossiers. Evita dades identificatives de persones i informació sensible a les notes i còpies.
 
 ## Actualitza la captura
@@ -46,6 +50,8 @@ Fes doble clic a **Actualitza-dades.cmd**. Necessita Python 3.13 i connexió a I
 Si una font crítica falla o la resposta és incompleta, es manté el catàleg anterior i es mostra un avís d’actualització fallida. Per activar la captura diària al núvol, segueix la [guia de GitHub gratuït](./GUIA-GITHUB.md). El flux està preparat, pendent de pujar el projecte i activar Pages.
 
 Les versions locals de registres publicables es conserven a `dades/observatori.sqlite`. No es desen HTML cru, transcripcions, NIF personals ni notes del navegador en aquesta base. La carpeta `dades` no entra a Netlify.
+
+Per ampliar el període de consulta, modifica `config/period.json`: any inicial (`startYear`), any final (`endYear`) i últim any amb liquidació que vols capturar (`latestLiquidationYear`). Després actualitza la captura i genera el web de nou. No publiquis un canvi de període si la captura ha fallat: els textos de la interfície i les dades han de correspondre al mateix període.
 
 ## Penja’l a Netlify
 

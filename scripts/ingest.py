@@ -23,6 +23,33 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
+PERIOD_PATH = ROOT / 'config' / 'period.json'
+
+def validate_period(value):
+    keys = {'startYear', 'endYear', 'latestLiquidationYear'}
+    if not isinstance(value, dict) or set(value) != keys or any(type(value[key]) is not int for key in keys):
+        raise ValueError('La configuració del període ha de contenir tres anys enters')
+    start, end, latest = value['startYear'], value['endYear'], value['latestLiquidationYear']
+    if start < 1900 or end > 9999 or not start <= latest <= end:
+        raise ValueError('L’ordre dels anys del període no és vàlid')
+    return {'startYear': start, 'endYear': end, 'latestLiquidationYear': latest}
+
+def load_period(path=PERIOD_PATH):
+    try:
+        return validate_period(json.loads(path.read_text(encoding='utf-8')))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError('No s’ha pogut llegir la configuració del període') from error
+
+PERIOD = load_period()
+
+def period_years(period=PERIOD, liquidation=False):
+    last = period['latestLiquidationYear'] if liquidation else period['endYear']
+    return range(period['startYear'], last + 1)
+
+def period_label(period=PERIOD, liquidation=False):
+    years = period_years(period, liquidation)
+    return f'{years.start}–{years.stop - 1}'
+
 SOC = 'https://analisi.transparenciacatalunya.cat/resource/'
 CKAN = 'https://dadesobertes.seu-e.cat/api/3/action/datastore_search?'
 ACTES = 'https://actes.castellarvalles.cat'
@@ -121,7 +148,7 @@ def company(value):
     # Només formes societàries explícites. No deduir persones ni completar NIF.
     return s if re.search(r'\b(?:S\.?\s?L\.?\s?U?\.?|S\.?\s?A\.?\s?U?\.?|SCCL|S\.C\.C\.L\.|UTE)\s*$', s, re.I) else None
 
-def normalize_contracts(pscp, rpc, capture):
+def normalize_contracts(pscp, rpc, capture, period=PERIOD):
     result = []
     for source, rows in [('PSCP', pscp), ('RPC', rpc)]:
         for r in rows:
@@ -131,7 +158,7 @@ def normalize_contracts(pscp, rpc, capture):
             d = iso(raw_date)
             pub = next((iso(r[x]) for x in ['data_publicacio_adjudicacio', 'data_publicacio_anunci', 'data_publicacio_formalitzacio', 'data_publicacio_contracte'] if r.get(x)), None)
             year = int(r['exercici']) if source == 'RPC' and r.get('exercici') else int((d or pub)[:4]) if (d or pub) else None
-            if year is None or not 2022 <= year <= 2026: continue
+            if year is None or year not in period_years(period): continue
             exp = clean(r.get('codi_expedient')).upper()
             lot = clean(r.get('numero_lot')) or None
             flags = []
@@ -148,47 +175,53 @@ def normalize_contracts(pscp, rpc, capture):
             result.append({'id': source.lower() + '-' + r['row_id'], 'source': source, 'expedient': exp, 'title': title or 'Objecte no informat', 'year': year, 'lot': lot, 'procedure': clean(r.get('procediment' if source == 'PSCP' else 'procediment_adjudicacio')), 'type': clean(r.get('tipus_contracte')), 'status': clean(r.get('fase_publicacio' if source == 'PSCP' else 'situaci_contractual')), 'amountCents': amount, 'vat': 'sense IVA' if source == 'PSCP' else 'no especificat', 'supplier': company(r.get('denominacio_adjudicatari' if source == 'PSCP' else 'adjudicatari')), 'date': d, 'url': url_value(r.get('enllac_publicacio'), native_url), 'capturedAt': capture, 'flags': flags})
     return sorted(result, key=lambda r: r['id'])
 
-def normalize_events(rows, capture, expedients):
+def normalize_events(rows, capture, expedients, period=PERIOD):
     output = []
     for r in rows:
         if str(r.get('codi_organ')) != '3411306': raise ValueError('Òrgan d’execució incorrecte')
         d = iso(r.get('data'))
         exp = clean(r.get('codi_expedient')).upper()
-        if not (d and 2022 <= int(d[:4]) <= 2026) and exp not in expedients: continue
+        if not (d and int(d[:4]) in period_years(period)) and exp not in expedients: continue
         output.append({'id': 'event-' + r['row_id'], 'expedient': exp, 'lot': clean(r.get('numero_lot')) or None, 'type': clean(r.get('tipus_actuacio_execucio')), 'title': public_title(r.get('denominacio_actuacio')) or clean(r.get('tipus_actuacio_execucio')), 'date': d, 'amountCents': cents(r.get('import_sense_iva')), 'url': url_value(r.get('url_json'), SOC + '8idu-wkjv.json?' + urllib.parse.urlencode({'$where': "codi_organ='3411306' AND codi_expedient='" + exp.replace("'", "''") + "'"})), 'capturedAt': capture})
     return sorted(output, key=lambda r: r['id'])
 
-def normalize_budget(initial, liquidation, capture):
+def normalize_budget(initial, liquidation, capture, period=PERIOD):
     output = {}
-    def key(r, chapter): return (int(r['ANY_EXERCICI']), str(r['TIPUS_PARTIDA']), str(r[chapter]))
+    chapters = {str(chapter) for chapter in range(1, 10)}
+    def key(r, chapter): return (int(r['ANY_EXERCICI']), str(r['TIPUS_PARTIDA']), str(r[chapter]).strip())
     def make(k, title):
         year, side, chapter = k
         return {'id': f'budget-{year}-{side}-{chapter}', 'year': year, 'side': {'D': 'despeses', 'I': 'ingressos'}[side], 'chapter': chapter, 'chapterName': clean(title), 'initialCents': None, 'finalCents': None, 'executedCents': None, 'url': '', 'capturedAt': capture, 'initialUrl': CKAN + urllib.parse.urlencode({'resource_id': BUDGET_ID, 'filters': json.dumps({'CODI_ENS': '805170005', 'ANY_EXERCICI': str(year), 'TIPUS_PARTIDA': side, 'TIPUS_CLASSIF': 'E', 'NIVELL': '1', 'CODI_PANTALLA': chapter})}), 'liquidationUrl': CKAN + urllib.parse.urlencode({'resource_id': LIQ_ID, 'filters': json.dumps({'CODI_ENS': '805170005', 'ANY_EXERCICI': year, 'TIPUS_PARTIDA': side, 'CODI_CAPITOL': int(chapter)})})}
     for r in initial:
-        if str(r['NIVELL']) != '1' or r['TIPUS_CLASSIF'] != 'E' or not 2022 <= int(r['ANY_EXERCICI']) <= 2026: continue
+        if str(r['NIVELL']) != '1' or r['TIPUS_CLASSIF'] != 'E' or int(r['ANY_EXERCICI']) not in period_years(period): continue
         k = key(r, 'CODI_PANTALLA')
+        if k[1] not in {'I', 'D'} or k[2] not in chapters: raise ValueError('Classificació pressupostària de nivell 1 inesperada')
         if k in output: raise ValueError('Capítol inicial duplicat')
         row = make(k, r['DESCRIPCIO']); row['initialCents'] = cents(r.get('IMPORT')); output[k] = row
+    expected = {(year, side, chapter) for year in period_years(period) for side in ('I', 'D') for chapter in chapters}
+    missing = expected - output.keys()
+    if missing:
+        raise ValueError(f'Cobertura pressupostària inicial incompleta: falten {len(missing)} combinacions d’any, costat i capítol 1–9')
     seen = set()
     for r in liquidation:
-        if not 2022 <= int(r['ANY_EXERCICI']) <= 2025: continue
+        if int(r['ANY_EXERCICI']) not in period_years(period, liquidation=True): continue
         k = key(r, 'CODI_CAPITOL')
+        if k[1] not in {'I', 'D'} or k[2] not in chapters: raise ValueError('Classificació de liquidació inesperada')
         if k in seen: raise ValueError('Capítol liquidat duplicat')
         seen.add(k)
-        row = output.setdefault(k, make(k, r['CAPITOL']))
+        row = output[k]
         row['finalCents'] = cents(r.get('IMPORT_PRESSU_FINAL')); row['executedCents'] = cents(r.get('IMPORT_LIQUIDAT'))
-    for row in output.values(): row['url'] = row['liquidationUrl'] if row['finalCents'] is not None else row['initialUrl']
-    if len(output) < 70: raise ValueError('Cobertura pressupostària insuficient')
+    for row in output.values(): row['url'] = row['liquidationUrl'] if row['finalCents'] is not None or row['executedCents'] is not None else row['initialUrl']
     return sorted(output.values(), key=lambda r: r['id'])
 
-def parse_session_list(text, capture, body):
+def parse_session_list(text, capture, body, period=PERIOD):
     pattern = r'<div class="title" title="([^"]+)"[^>]*>([\s\S]*?)href="(https://actes\.castellarvalles\.cat/session/sessionDetail/[a-f0-9]+)"'
     records = []
     for title, block, url in re.findall(pattern, text):
         d = re.search(r'(\d{2}/\d{2}/\d{4})\s+\d{2}:\d{2}h', block)
         if not d: raise ValueError('Data de sessió no localitzada')
         value = iso(d[1])
-        if not 2022 <= int(value[:4]) <= 2026: continue
+        if int(value[:4]) not in period_years(period): continue
         records.append({'id': url.rsplit('/', 1)[1], 'title': clean(title), 'body': body, 'date': value, 'url': url, 'agenda': [], 'capturedAt': capture})
     if not records: raise ValueError('Catàleg de sessions buit o estructura canviada')
     return records
@@ -227,17 +260,17 @@ def parse_agenda(text):
     # Alguns portals repeteixen paràgrafs per adaptació mòbil.
     return list({(a['number'], a['title']): a for a in points}.values())
 
-def collect_sessions(capture):
+def collect_sessions(capture, period=PERIOD):
     all_rows = []
     for body, code in [('Ple', 'ff8080816059f3f1016059f46e5c000d'), ('Junta de Govern', 'ff8080816059f3f1016059f46e62000e')]:
-        url = ACTES + '/session/fragmentCustom?' + urllib.parse.urlencode({'sessionTypeId': code, 'startDate': '01/01/2022', 'endDate': '31/12/2026', 'search': 'yes', 'max': 1000})
+        url = ACTES + '/session/fragmentCustom?' + urllib.parse.urlencode({'sessionTypeId': code, 'startDate': f"01/01/{period['startYear']}", 'endDate': f"31/12/{period['endYear']}", 'search': 'yes', 'max': 1000})
         text = get(url, False)
-        rows = parse_session_list(text, capture, body)
+        rows = parse_session_list(text, capture, body, period)
         links = set(re.findall(r'/session/sessionDetail/([a-f0-9]+)', text))
         if len(rows) != len(links) or len(rows) >= 1000 or 'class="nextLink"' in text: raise ValueError('Paginació de sessions incompleta')
         # Verificar que la suma dels índexs anuals coincideix amb la consulta completa.
         annual = set()
-        for year in range(2022, 2027):
+        for year in period_years(period):
             check = get(ACTES + '/session/fragmentCustom?' + urllib.parse.urlencode({'sessionTypeId': code, 'startDate': f'01/01/{year}', 'endDate': f'31/12/{year}', 'search': 'yes', 'max': 1000}), False)
             annual.update(re.findall(r'/session/sessionDetail/([a-f0-9]+)', check))
         if annual != links: raise ValueError('Índex anual de sessions inconsistent')
@@ -252,7 +285,7 @@ def collect_sessions(capture):
 def source(id, name, url, records, coverage, note, capture, status='ok'):
     return dict(id=id, name=name, url=url, records=records, coverage=coverage, note=note, capturedAt=capture, status=status)
 
-def collect():
+def collect(period=PERIOD):
     capture = stamp()
     jobs = {
         'pscp': lambda: socrata('ybgg-dgi6', "codi_organ='3411306'", 'codi_organ,id_intern,codi_expedient,numero_lot,denominacio,procediment,tipus_contracte,fase_publicacio,denominacio_adjudicatari,import_adjudicacio_sense,data_adjudicacio_contracte,enllac_publicacio,data_publicacio_adjudicacio,data_publicacio_anunci,data_publicacio_formalitzacio,data_publicacio_contracte'),
@@ -264,17 +297,20 @@ def collect():
         futures = {name: pool.submit(job) for name, job in jobs.items()}
         raw = {name: future.result() for name, future in futures.items()}
     print('APIs completades: ' + ', '.join(f'{k}={len(v)}' for k,v in raw.items()), flush=True)
-    contracts = normalize_contracts(raw['pscp'], raw['rpc'], capture)
-    events = normalize_events(raw['events'], capture, {c['expedient'] for c in contracts})
-    budget = normalize_budget(raw['initial'], raw['liq'], capture)
-    sessions = collect_sessions(capture)
+    contracts = normalize_contracts(raw['pscp'], raw['rpc'], capture, period)
+    events = normalize_events(raw['events'], capture, {c['expedient'] for c in contracts}, period)
+    budget = normalize_budget(raw['initial'], raw['liq'], capture, period)
+    sessions = collect_sessions(capture, period)
     counts = Counter(c['source'] for c in contracts)
+    full_period = period_label(period)
+    liquidation_period = period_label(period, liquidation=True)
+    budget_partial = any(row['initialCents'] is None or (row['year'] <= period['latestLiquidationYear'] and (row['finalCents'] is None or row['executedCents'] is None)) for row in budget)
     sources = [
-        source('pscp', 'Plataforma de serveis de contractació pública', 'https://analisi.transparenciacatalunya.cat/d/ybgg-dgi6', counts['PSCP'], '2022–2026 · any d’adjudicació; si manca, any de publicació.', 'Adjudicacions sense IVA. Imports compostos no interpretats i dates futures s’indiquen a la fitxa. Noms d’adjudicataris només amb forma societària explícita. Font Generalitat; reutilització amb atribució.', capture),
-        source('rpc', 'Registre públic de contractes', 'https://analisi.transparenciacatalunya.cat/d/hb6v-jcbf', counts['RPC'], 'Exercicis 2022–2026 informats pel registre.', 'Observacions separades de la PSCP. Base d’IVA no acreditada en aquest adaptador. No sumar imports amb els de la PSCP. Font Generalitat; reutilització amb atribució.', capture),
-        source('events', 'Execució contractual · PSCP', 'https://analisi.transparenciacatalunya.cat/d/8idu-wkjv', len(events), 'Fites 2022–2026 i fites d’expedients inclosos en el catàleg.', 'Relació per codi exacte d’expedient; lot conservat. La falta de fites no acredita la inexistència de modificacions o pròrrogues.', capture),
-        source('budget', 'Pressupost i liquidació · AOC', 'https://dadesobertes.seu-e.cat/dataset/liquidacio-del-pressupost-execucio-per-capitols', len(budget), 'Pressupost inicial 2022–2026; liquidacions 2022–2025.', 'Classificació econòmica, nivell 1. Imports de capítols sense duplicar jerarquies. Els capítols absents de la liquidació queden sense import, no a zero. Mostra de despesa 2024 contrastada amb el PDF municipal. Font Generalitat/AOC; atribució indicada als registres.', capture),
-        source('sessions', 'Portal municipal d’àudio vídeo actes', ACTES + '/session/portadaPublica', len(sessions), 'Catàleg de plens i juntes 2022–2026. Índex contrastat amb consultes anuals.', 'Només punts dels plens que superen el filtre preventiu; JGL només metadades i enllaç. No transcriu vídeos ni acredita votacions. Els ordres del dia tenen cobertura parcial per privacitat i estructura del portal. Documents originals subjectes a les condicions municipals.', capture, 'partial'),
+        source('pscp', 'Plataforma de serveis de contractació pública', 'https://analisi.transparenciacatalunya.cat/d/ybgg-dgi6', counts['PSCP'], f'{full_period} · any d’adjudicació; si manca, any de publicació.', 'Adjudicacions sense IVA. Imports compostos no interpretats i dates futures s’indiquen a la fitxa. Noms d’adjudicataris només amb forma societària explícita. Font Generalitat; reutilització amb atribució.', capture),
+        source('rpc', 'Registre públic de contractes', 'https://analisi.transparenciacatalunya.cat/d/hb6v-jcbf', counts['RPC'], f'Exercicis {full_period} informats pel registre.', 'Observacions separades de la PSCP. Base d’IVA no acreditada en aquest adaptador. No sumar imports amb els de la PSCP. Font Generalitat; reutilització amb atribució.', capture),
+        source('events', 'Execució contractual · PSCP', 'https://analisi.transparenciacatalunya.cat/d/8idu-wkjv', len(events), f'Fites {full_period} i fites d’expedients inclosos en el catàleg.', 'Relació per codi exacte d’expedient; lot conservat. La falta de fites no acredita la inexistència de modificacions o pròrrogues.', capture),
+        source('budget', 'Pressupost i liquidació · AOC', 'https://dadesobertes.seu-e.cat/dataset/liquidacio-del-pressupost-execucio-per-capitols', len(budget), f'Pressupost inicial {full_period}; liquidacions {liquidation_period}.', 'Classificació econòmica, nivell 1. La captura inicial exigeix els capítols 1–9 per any i costat. Els imports nuls i els capítols absents de la liquidació queden sense import, no a zero. Font Generalitat/AOC; atribució indicada als registres.', capture, 'partial' if budget_partial else 'ok'),
+        source('sessions', 'Portal municipal d’àudio vídeo actes', ACTES + '/session/portadaPublica', len(sessions), f'Catàleg de plens i juntes {full_period}. Índex contrastat amb consultes anuals.', 'Només punts dels plens que superen el filtre preventiu; JGL només metadades i enllaç. No transcriu vídeos ni acredita votacions. Els ordres del dia tenen cobertura parcial per privacitat i estructura del portal. Documents originals subjectes a les condicions municipals.', capture, 'partial'),
     ]
     return {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'sources': sources, 'changes': []}
 

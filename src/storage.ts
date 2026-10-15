@@ -16,24 +16,51 @@ export async function readDossiers(): Promise<Dossier[]> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('dossiers', 'readonly');
     const r = tx.objectStore('dossiers').getAll();
-    r.onsuccess = () => resolve(r.result.sort((a: Dossier, b: Dossier) => b.updatedAt.localeCompare(a.updatedAt)));
+    r.onsuccess = () => resolve(r.result.map((d: Dossier) => ({...d, revision: d.revision ?? 0})).sort((a: Dossier, b: Dossier) => b.updatedAt.localeCompare(a.updatedAt)));
     r.onerror = () => reject(new Error('No s’han pogut llegir els dossiers.'));
   });
 }
-export async function writeDossier(dossier: Dossier) {
+export class DossierConflict extends Error {
+  constructor() {super('El dossier ha canviat o s’ha eliminat en una altra pestanya. Hem actualitzat la llista. Revisa els canvis i torna-ho a provar; l’esborrany de la nota es conserva.');}
+}
+
+// La lectura de versió i l’escriptura comparteixen transacció: cap altra pestanya
+// pot intercalar un canvi entre la comprovació i el desament.
+export async function writeDossier(dossier: Dossier): Promise<Dossier> {
+  const db = await database();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('dossiers', 'readwrite');
+    const store = tx.objectStore('dossiers');
+    const request = store.get(dossier.id);
+    let conflict = false;
+    let saved: Dossier;
+    request.onsuccess = () => {
+      const current = request.result as Dossier | undefined;
+      const expected = dossier.revision;
+      if (current ? expected !== (current.revision ?? 0) : expected !== undefined) {
+        conflict = true; tx.abort(); return;
+      }
+      saved = {...dossier, revision: (current?.revision ?? 0) + 1};
+      store.put(saved);
+    };
+    tx.oncomplete = () => resolve(saved);
+    tx.onerror = tx.onabort = () => reject(conflict ? new DossierConflict() : new Error('No s’ha desat el dossier. Comprova l’espai del navegador i exporta una còpia.'));
+  });
+}
+export async function removeDossier(dossier: Dossier) {
   const db = await database();
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction('dossiers', 'readwrite');
-    tx.objectStore('dossiers').put(dossier);
+    const store = tx.objectStore('dossiers');
+    const request = store.get(dossier.id);
+    let conflict = false;
+    request.onsuccess = () => {
+      const current = request.result as Dossier | undefined;
+      if (!current || dossier.revision !== (current.revision ?? 0)) {conflict = true; tx.abort(); return;}
+      store.delete(dossier.id);
+    };
     tx.oncomplete = () => resolve();
-    tx.onerror = tx.onabort = () => reject(new Error('No s’ha desat el dossier. Comprova l’espai del navegador i exporta una còpia.'));
-  });
-}
-export async function removeDossier(id: string) {
-  const db = await database();
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('dossiers', 'readwrite'); tx.objectStore('dossiers').delete(id);
-    tx.oncomplete = () => resolve(); tx.onerror = () => reject(new Error('No s’ha pogut eliminar el dossier.'));
+    tx.onerror = tx.onabort = () => reject(conflict ? new DossierConflict() : new Error('No s’ha pogut eliminar el dossier.'));
   });
 }
 export function parseDossier(value: unknown): Dossier {

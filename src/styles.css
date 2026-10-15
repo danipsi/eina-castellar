@@ -29,3 +29,15 @@
 @media(max-width:700px){.merge-list li{flex-direction:column;align-items:flex-start}.topic-list{padding:14px}}
 .pending-motions{margin-bottom:25px}.pending-list{list-style:none;margin:0;padding:0}.pending-list li{border-bottom:1px solid #edf1f4}.pending-list li:last-child{border-bottom:0}.pending-list a{display:flex;flex-direction:column;gap:6px;padding:15px 23px;color:inherit;text-decoration:none}.pending-list a:hover{background:#f7fafb}.pending-list strong{font-size:12px;font-weight:550}.pending-list .row-meta{margin:0}.pending-empty{padding:18px 23px}
 @media(max-width:700px){.pending-list a,.pending-empty{padding:14px 18px}}
+
+.minor-patterns .panel{margin-bottom:25px}.minor-patterns .view-controls{margin-top:18px}.minor-patterns .notice svg{color:var(--green)}
+.year-summary{margin-bottom:6px}.year-summary td,.year-summary th{padding:9px 23px}
+.pattern-subtitle{padding:0 23px;margin:18px 0 8px}h3.pattern-subtitle{margin-top:22px}
+.pattern-groups{display:flex;flex-direction:column}.pattern-group{border-bottom:1px solid #edf1f4}.pattern-group:last-child{border-bottom:0}
+.pattern-group summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 18px;align-items:center;padding:15px 23px;cursor:pointer;list-style:none}.pattern-group summary::-webkit-details-marker{display:none}
+.pattern-group summary:hover{background:#f7fafb}.pattern-group[open] summary{background:#f1f6f9}
+.pattern-name{font-size:13px;font-weight:600;color:#253744;overflow-wrap:anywhere}.pattern-group summary .row-meta{grid-column:1;margin:0;font-size:11px;color:#7c8c96;flex-wrap:wrap}
+.pattern-group summary>strong{grid-column:2;grid-row:1/span 2;text-align:right;display:flex;flex-direction:column;gap:3px}.pattern-group summary>strong small{font-weight:400;color:#7c8c96;font-size:10px}
+.contract-table td>small.muted{display:block;margin-top:4px;font-size:11px}
+@media(max-width:700px){.pattern-group summary,.pattern-subtitle,.year-summary td,.year-summary th{padding-left:18px;padding-right:18px}.pattern-group summary{grid-template-columns:1fr}.pattern-group summary>strong{grid-column:1;grid-row:auto;text-align:left}}
+.pattern-name small{display:block;font-weight:400;font-size:11px;color:#687884;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

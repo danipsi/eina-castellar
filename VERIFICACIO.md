@@ -122,3 +122,12 @@ Verificació executada: 25 escenaris de navegador (3 de nous a `tests/browser/se
 - **Dades locals:** marques i unions a `localStorage` (`observatori.mocions.v1`). La importació valida identificadors, estats, compliment, notes i unions, i fusiona per data de modificació.
 
 Verificació executada: 27 escenaris de navegador (2 de nous a `tests/browser/mocions.spec.ts`, amb grups i mocions inventats) i 2 de producció. TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil.
+
+## Patrons en contractes menors · 15/10/2026
+
+- **Captura:** `scripts/ingest.py` afegeix `cpv` als contractes de les dues fonts (`codi_cpv`). Quan la PSCP en dona diversos separats per «||», es conserva el primer (principal). Un camp nou de l’esquema no genera canvis: el registre de canvis només compara camps presents a les dues versions. Captura del 15/10/2026: CPV a 528 de 581 registres PSCP i a 654 de 668 del RPC; 2 registres nous.
+- **Selecció:** `src/minorData.ts` considera contractes menors els de procediment «menor» d’obres, serveis o subministraments; concessions i administratius especials en queden fora perquè no tenen aquest llindar. Llindars de l’article 118.1 de la LCSP, sense IVA, comparats amb l’import d’adjudicació.
+- **Duplicats:** la PSCP publica alguns contractes dues vegades (adjudicació i publicació agregada). Els registres amb el mateix expedient i import compten una sola vegada, preferint el que té adjudicatari visible. Captura del 15/10/2026, PSCP: 289 registres, 14 repetits, 275 contractes menors, 51 entre el 90 i el 100 % del llindar i cap igual o per sobre.
+- **Grups:** dos o més contractes del mateix exercici d’adjudicació i tipus de llindar que, sumats, hi arriben; per adjudicatari (només formes societàries explícites) o per prefix del CPV (3, 4, 5 o 8 xifres; 4 per defecte). No s’hi infereix cap fraccionament.
+
+Verificació executada: 29 escenaris de navegador (2 de nous a `tests/browser/contractes-menors.spec.ts`, amb contractes inventats) i 2 de producció; 2 proves noves de la captura (CPV i camp nou sense canvis). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil.

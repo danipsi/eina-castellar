@@ -45,6 +45,25 @@ class IngestTest(unittest.TestCase):
         self.assertIsNone(m.company('Persona de prova'))
         self.assertEqual(m.company('EMPRESA DE PROVA SL'), 'EMPRESA DE PROVA SL')
 
+    def test_cpv_keeps_the_main_code(self):
+        self.assertEqual(m.cpv('85121270-6'), '85121270-6')
+        self.assertEqual(m.cpv('90922000-6||90923000-3'), '90922000-6')
+        self.assertEqual(m.cpv('71311000'), '71311000')
+        self.assertIsNone(m.cpv(''))
+        self.assertIsNone(m.cpv('123456789'))
+
+    def test_new_schema_field_is_not_a_change(self):
+        data = self.catalog()
+        with self.temporary_root() as d:
+            root = Path(d); m.publish(copy.deepcopy(data), root)
+            data['generatedAt'] = '2026-10-14'
+            data['contracts'][0].update(cpv='85121270-6', capturedAt='2026-10-14')
+            data['sessions'][0]['capturedAt'] = '2026-10-14'
+            self.assertEqual(m.publish(copy.deepcopy(data), root), 0)
+            data['generatedAt'] = '2026-10-15'
+            data['contracts'][0].update(cpv='71311000-1', capturedAt='2026-10-15')
+            self.assertEqual(m.publish(copy.deepcopy(data), root), 1)
+
     def test_truncation(self):
         n = 0
         def response(url):

@@ -148,6 +148,11 @@ def company(value):
     # Només formes societàries explícites. No deduir persones ni completar NIF.
     return s if re.search(r'\b(?:S\.?\s?L\.?\s?U?\.?|S\.?\s?A\.?\s?U?\.?|SCCL|S\.C\.C\.L\.|UTE)\s*$', s, re.I) else None
 
+def cpv(value):
+    # La PSCP pot llistar diversos codis separats per «||»; es conserva el principal (el primer).
+    found = re.search(r'\b(\d{8})(?:-(\d))?\b', str(value or ''))
+    return found[1] + ('-' + found[2] if found[2] else '') if found else None
+
 def normalize_contracts(pscp, rpc, capture, period=PERIOD):
     result = []
     for source, rows in [('PSCP', pscp), ('RPC', rpc)]:
@@ -172,7 +177,7 @@ def normalize_contracts(pscp, rpc, capture, period=PERIOD):
                 flags.append('Import compost o amb format no interpretat. Consulta l’original.')
             title = public_title(r.get('denominacio') if source == 'PSCP' else r.get('descripcio_expedient') or r.get('contracte'))
             native_url = SOC + ('ybgg-dgi6' if source == 'PSCP' else 'hb6v-jcbf') + '.json?' + urllib.parse.urlencode({'$where': ':id=' + "'" + r['row_id'] + "'"})
-            result.append({'id': source.lower() + '-' + r['row_id'], 'source': source, 'expedient': exp, 'title': title or 'Objecte no informat', 'year': year, 'lot': lot, 'procedure': clean(r.get('procediment' if source == 'PSCP' else 'procediment_adjudicacio')), 'type': clean(r.get('tipus_contracte')), 'status': clean(r.get('fase_publicacio' if source == 'PSCP' else 'situaci_contractual')), 'amountCents': amount, 'vat': 'sense IVA' if source == 'PSCP' else 'no especificat', 'supplier': company(r.get('denominacio_adjudicatari' if source == 'PSCP' else 'adjudicatari')), 'date': d, 'url': url_value(r.get('enllac_publicacio'), native_url), 'capturedAt': capture, 'flags': flags})
+            result.append({'id': source.lower() + '-' + r['row_id'], 'source': source, 'expedient': exp, 'title': title or 'Objecte no informat', 'year': year, 'lot': lot, 'procedure': clean(r.get('procediment' if source == 'PSCP' else 'procediment_adjudicacio')), 'type': clean(r.get('tipus_contracte')), 'status': clean(r.get('fase_publicacio' if source == 'PSCP' else 'situaci_contractual')), 'amountCents': amount, 'vat': 'sense IVA' if source == 'PSCP' else 'no especificat', 'supplier': company(r.get('denominacio_adjudicatari' if source == 'PSCP' else 'adjudicatari')), 'cpv': cpv(r.get('codi_cpv')), 'date': d, 'url': url_value(r.get('enllac_publicacio'), native_url), 'capturedAt': capture, 'flags': flags})
     return sorted(result, key=lambda r: r['id'])
 
 def normalize_events(rows, capture, expedients, period=PERIOD):
@@ -288,8 +293,8 @@ def source(id, name, url, records, coverage, note, capture, status='ok'):
 def collect(period=PERIOD):
     capture = stamp()
     jobs = {
-        'pscp': lambda: socrata('ybgg-dgi6', "codi_organ='3411306'", 'codi_organ,id_intern,codi_expedient,numero_lot,denominacio,procediment,tipus_contracte,fase_publicacio,denominacio_adjudicatari,import_adjudicacio_sense,data_adjudicacio_contracte,enllac_publicacio,data_publicacio_adjudicacio,data_publicacio_anunci,data_publicacio_formalitzacio,data_publicacio_contracte'),
-        'rpc': lambda: socrata('hb6v-jcbf', "id_organisme_contractant='0805170005'", 'id_organisme_contractant,codi_expedient,numero_lot,exercici,descripcio_expedient,contracte,procediment_adjudicacio,tipus_contracte,situaci_contractual,adjudicatari,import_adjudicacio,data_adjudicacio'),
+        'pscp': lambda: socrata('ybgg-dgi6', "codi_organ='3411306'", 'codi_organ,id_intern,codi_expedient,numero_lot,denominacio,procediment,tipus_contracte,fase_publicacio,denominacio_adjudicatari,import_adjudicacio_sense,data_adjudicacio_contracte,enllac_publicacio,data_publicacio_adjudicacio,data_publicacio_anunci,data_publicacio_formalitzacio,data_publicacio_contracte,codi_cpv'),
+        'rpc': lambda: socrata('hb6v-jcbf', "id_organisme_contractant='0805170005'", 'id_organisme_contractant,codi_expedient,numero_lot,exercici,descripcio_expedient,contracte,procediment_adjudicacio,tipus_contracte,situaci_contractual,adjudicatari,import_adjudicacio,data_adjudicacio,codi_cpv'),
         'events': lambda: socrata('8idu-wkjv', "codi_organ='3411306'", 'codi_organ,codi_expedient,numero_lot,tipus_actuacio_execucio,denominacio_actuacio,data,import_sense_iva,url_json'),
         'initial': lambda: ckan(BUDGET_ID), 'liq': lambda: ckan(LIQ_ID),
     }
@@ -331,7 +336,8 @@ def safe_change_value(field, value):
 
 def changed_fields(before, after):
     fields = []
-    for field in sorted((set(before) | set(after)) - {'capturedAt'}):
+    # Un camp nou o retirat de l'esquema no és un canvi de la font: només es comparen els comuns.
+    for field in sorted((set(before) & set(after)) - {'capturedAt'}):
         old_value, new_value = before.get(field), after.get(field)
         if old_value == new_value: continue
         change = {'field': field}

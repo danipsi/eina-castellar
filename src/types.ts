@@ -17,4 +17,4 @@ export type RequestStatus = 'esborrany' | 'presentada' | 'resposta' | 'resposta 
 export type FormalRequest = {id: string; kind: RequestKind; text: string; createdAt: string; status: RequestStatus; presentedAt: string | null; registry: string};
 export type Dossier = {id: string; title: string; createdAt: string; updatedAt: string; evidence: Evidence[]; notes: Note[]; requests?: FormalRequest[]; revision?: number};
 export type Selection = {kind: 'contract'; item: Contract} | {kind: 'session'; item: Session} | {kind: 'budget'; item: BudgetRow};
-export type Page = 'overview' | 'contracts' | 'budget' | 'sessions' | 'dossiers' | 'sources' | 'search';
+export type Page = 'overview' | 'contracts' | 'budget' | 'sessions' | 'motions' | 'dossiers' | 'sources' | 'search';

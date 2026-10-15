@@ -113,3 +113,12 @@ Implementació local; no s’ha publicat ni modificat la captura.
 - **RSS:** `ple.xml` es genera en compilar (i en el servidor de desenvolupament) a partir de `public/data/catalog.json`. El flux de Pages hi passa l’adreça del web com a `SITE_URL`.
 
 Verificació executada: 25 escenaris de navegador (3 de nous a `tests/browser/seguiment.spec.ts`) i 2 de producció, aquests amb comprovació del canal sota la base del repositori. TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil.
+
+## Seguiment de mocions · 15/10/2026
+
+- **Extracció:** `src/motionData.ts` reconeix als punts dels plens les fórmules «Moció presentada/formulada pel grup municipal…». El nom del grup acaba en la fórmula del títol, en un signe o en una preposició seguida de minúscula; el títol és el text que segueix «porta per títol», «té per títol» o «amb el títol». S’exclouen «Proposicions i mocions sobrevingudes» i les juntes de govern. Les anotacions «sobre la taula» i «retirat de l’ordre del dia» es mostren com a indicació, no com a estat.
+- **Duplicats i variants:** les aparicions amb el mateix títol normalitzat i el mateix grup formen una sola moció. Les variants de nom es fusionen quan, sense accents ni signes, una és el començament de l’altra; la resta les uneix l’usuari. Amb la captura del 15/10/2026: 107 punts, 100 mocions i 7 grups abans d’unions manuals.
+- **Enllaços:** cada moció té un identificador estable (títol normalitzat i grups) que permet obrir-la des de la fitxa de la sessió i des del resum de la portada (`#motions?motion=…`).
+- **Dades locals:** marques i unions a `localStorage` (`observatori.mocions.v1`). La importació valida identificadors, estats, compliment, notes i unions, i fusiona per data de modificació.
+
+Verificació executada: 27 escenaris de navegador (2 de nous a `tests/browser/mocions.spec.ts`, amb grups i mocions inventats) i 2 de producció. TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil.

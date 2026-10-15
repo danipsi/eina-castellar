@@ -20,3 +20,12 @@
 .feed-link{display:inline-flex;align-items:center;gap:6px}
 @media(max-width:800px){.request-grid{grid-template-columns:1fr}}
 @media print{.request-item{break-inside:avoid}.request-preview{max-height:none}}
+.motion-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:15px;margin-bottom:15px}.motion-grid .panel{align-self:start}
+.motion-matrix td,.motion-matrix th{padding:10px 14px}.motion-matrix tbody th{background:none;text-transform:none;letter-spacing:0;font-size:12px;color:#253744;font-weight:550;white-space:normal;border-bottom:1px solid #edf1f4;text-align:left}.motion-matrix tr.selected{background:#f1f6f9}
+.link-cell{color:#3f6f82;font:inherit;padding:2px 4px;border-radius:4px;text-align:left}.link-cell:hover{text-decoration:underline;background:#eef4f7}
+.topic-list{display:flex;flex-wrap:wrap;gap:8px;padding:18px 21px}.topic-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #dae2e8;border-radius:999px;padding:5px 11px;font-size:11px;color:#46606d;background:white}.topic-chip span{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#87939b}.topic-chip:hover{background:#f5f8fa}.topic-chip.active{background:#235268;border-color:#235268;color:white}.topic-chip.active span{color:#d5e3ea}
+.merge-list{list-style:none;padding:0;margin:14px 0 0}.merge-list li{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:10px 0;border-bottom:1px solid #edf1f4}.merge-list li>div{display:flex;flex-direction:column;gap:4px;min-width:0}.merge-list small{color:#80909a;font-size:10px}.merge-list .field{margin:0;flex-direction:row;align-items:center;gap:8px;white-space:nowrap}
+@media(max-width:1000px){.motion-grid{grid-template-columns:1fr}}
+@media(max-width:700px){.merge-list li{flex-direction:column;align-items:flex-start}.topic-list{padding:14px}}
+.pending-motions{margin-bottom:25px}.pending-list{list-style:none;margin:0;padding:0}.pending-list li{border-bottom:1px solid #edf1f4}.pending-list li:last-child{border-bottom:0}.pending-list a{display:flex;flex-direction:column;gap:6px;padding:15px 23px;color:inherit;text-decoration:none}.pending-list a:hover{background:#f7fafb}.pending-list strong{font-size:12px;font-weight:550}.pending-list .row-meta{margin:0}.pending-empty{padding:18px 23px}
+@media(max-width:700px){.pending-list a,.pending-empty{padding:14px 18px}}

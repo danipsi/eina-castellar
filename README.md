@@ -13,6 +13,7 @@ MVP funcional d’exploració municipal, en català i amb estètica de tauler so
 - Pressupostos 2022–2026 i liquidacions 2022–2025 per capítol econòmic, comparació anual d’inicial/definitiu/liquidat i exportació de diferències.
 - Catàleg Ple/JGL i punts indexats dels plens amb filtre preventiu de privacitat.
 - Execució de les inversions (capítol 6) per exercici, a la portada i a Pressupost, amb crèdit inicial, definitiu, liquidat i crèdit no executat.
+- Seguiment de mocions del Ple: grup i títol extrets de l’ordre del dia, recompte per grup i any, temes recurrents, i estat de la votació, compliment i notes marcats a mà al navegador, amb exportació i importació JSON i CSV.
 - Canal RSS `ple.xml` amb els 25 plens més recents i els punts indexats, generat en compilar a partir de la mateixa captura.
 - Dossiers IndexedDB amb notes, preguntes, hipòtesis, estat de revisió, còpia JSON, Markdown i impressió. Generador de preguntes al Ple, precs i sol·licituds d’informació amb les notes i fonts del dossier, i seguiment de la presentació i la resposta. Control de versions entre pestanyes, esborranys per dossier i accés independent del catàleg públic.
 - Fonts, cobertura, qualitat i detall dels registres nous o modificats del darrer lot de canvis entre captures. Els recomptes antics es mantenen sense inventar-ne detalls.

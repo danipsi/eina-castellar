@@ -85,7 +85,9 @@ export function parseDossierBody(d: Record<string, unknown>): Dossier {
   const id = (v: unknown) => typeof v === 'string' && ID.test(v) ? v : crypto.randomUUID();
   const stamp = (v: unknown): string | undefined => v === undefined ? undefined : typeof v === 'string' && STAMP.test(v) ? v : bad();
   if (!str(d.title, 160) || !d.title.trim() || !str(d.createdAt, 40) || !str(d.updatedAt, 40) || !Array.isArray(d.notes) || !Array.isArray(d.evidence) || d.notes.length > 1000 || d.evidence.length > 2000) return bad();
-  const evidence = d.evidence.map(e => {
+  const evidence = d.evidence.map(raw => {
+    // Els dossiers desats abans de codificar l'apòstrof als enllaços es poden importar igualment.
+    const e = raw && typeof raw.href === 'string' ? {...raw, href: raw.href.replace(/'/g, '%27')} : raw;
     if (!e || !str(e.id, 300) || !EVIDENCE_KINDS.includes(e.kind) || !(e.href === undefined || (str(e.href, 1000) && INTERNAL.test(e.href))) || !str(e.title) || !str(e.url, 2000) || safeUrl(e.url) === '#' || !str(e.source) || !str(e.capturedAt, 40) || !str(e.locator)) return bad();
     const addedAt = stamp(e.addedAt);
     return {id: e.id, kind: e.kind, title: e.title, url: e.url, source: e.source, capturedAt: e.capturedAt, locator: e.locator, ...(e.href ? {href: e.href} : {}), ...(addedAt ? {addedAt} : {})};

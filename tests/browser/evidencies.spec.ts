@@ -90,6 +90,7 @@ test('dossiers: importació de les evidències noves i enllaços interns segurs'
   const parsed = parseDossierBody(dossier(evidence({href: '#budget?year=2024&peer=executedCents&seccio=municipis'})));
   expect(parsed.evidence[0]).toMatchObject({kind: 'peer', href: '#budget?year=2024&peer=executedCents&seccio=municipis'});
   expect(parseDossierBody(dossier(evidence({}))).evidence[0].href).toBeUndefined();
+  expect(parseDossierBody(dossier(evidence({href: "#suppliers?year=2025&name=L'ARCA"}))).evidence[0].href).toBe('#suppliers?year=2025&name=L%27ARCA');
   for (const href of ['https://example.org', 'javascript:alert(1)', '#budget?x="><script>', '//example.org']) expect(() => parseDossierBody(dossier(evidence({href})))).toThrow();
   expect(() => parseDossierBody(dossier(evidence({kind: 'desconegut'})))).toThrow();
 });

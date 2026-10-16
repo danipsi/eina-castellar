@@ -9,7 +9,8 @@ import {perCapita, versusMedian, type PeerChapter, type PeerMetric, type PeerSta
 // Referències per als dossiers de les pàgines agregades. El localitzador desa les xifres tal com
 // es veien en desar-les: la captura següent pot canviar-les. `href` torna a la vista de l'Observatori.
 const plural = (n: number, one: string, many: string) => `${number(n)} ${n === 1 ? one : many}`;
-const q = encodeURIComponent;
+// L'apòstrof també es codifica: la importació de dossiers rebutja els enllaços interns que en porten.
+const q = (s: string) => encodeURIComponent(s).replace(/'/g, '%27');
 
 export function supplierEvidence(row: SupplierYear & {name: string}): Evidence {
   return {id: `supplier:${companyKey(row.name)}:${row.year}`, kind: 'supplier', title: `${row.name} · factures ${row.year}`, url: row.url, source: 'Registre de factures · Ajuntament', capturedAt: row.capturedAt,

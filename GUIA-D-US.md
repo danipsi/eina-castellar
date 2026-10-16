@@ -21,7 +21,7 @@ La consulta funciona amb la captura inclosa; no cal actualitzar les dades per pr
 
 - **Contractació:** tria PSCP o RPC, any, procediment i text. El CSV inclou exactament les files filtrades, encara que la taula tingui diverses pàgines. Els imports desconeguts queden buits. No es barregen totals de les dues fonts.
 - **Pressupost:** tria exercici i despeses o ingressos. Les barres tenen una taula equivalent amb imports exactes. «No informat» no és zero. La liquidació no és un registre de pagaments.
-- **Sessions:** cerca dins dels punts indexats i obre acta/vídeo a la font original. Les juntes de govern només tenen catàleg i enllaç. No tots els punts dels plens s’indexen.
+- **Sessions:** per defecte mostra els plens; les pestanyes «Junta de Govern» i «Tots els òrgans» canvien la llista i cada una indica quantes sessions hi ha amb la cerca i l’exercici triats. Cerca dins dels punts indexats i obre acta/vídeo a la font original. Les juntes de govern només tenen catàleg i enllaç. No tots els punts dels plens s’indexen.
 - **Fonts i qualitat:** consulta captura, cobertura, exclusions i canvis. Una data de captura recent no garanteix que l’editor hagi publicat tota l’activitat recent.
 - **Ctrl+K:** porta el focus al cercador global. Esc tanca les fitxes.
 

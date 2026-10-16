@@ -182,3 +182,10 @@ Verificació executada: 45 escenaris de navegador (3 de nous a `tests/browser/mu
 - **Pes de les dades:** en compilar, les factures passen a `dist/data/suppliers.json` i el catàleg inicial baixa de 3,1 a 1,8 MB (de 450 a 288 kB comprimit). Només es carreguen a Proveïdors, Subvencions i, si hi ha novetats de factures, a Fonts i qualitat. `public/data/catalog.json` i el capturador no canvien.
 
 Verificació executada: 50 escenaris de navegador (2 de nous: suggeriments de variants i càrrega a demanda de les factures; s’adapta la de convenis a les pestanyes) i 3 de producció (1 de nou: fitxer de factures separat i carregat només quan cal); 25 proves de la captura. TypeScript i Vite correctes. Captures de `docs/captures/` regenerades.
+
+## Filtre per òrgan a Sessions · 16/10/2026
+
+- **Canvi:** Sessions mostra per defecte els plens (60 de 272 sessions a la captura del 16/10/2026; la resta són 212 juntes de govern). Les pestanyes «Ple», «Junta de Govern» i «Tots els òrgans» filtren la llista i indiquen el recompte amb la cerca i l’exercici aplicats. L’enllaç conserva l’elecció (`organ=Junta de Govern` o `organ=tots`; el Ple no afegeix cap paràmetre). Si una captura només tingués un òrgan, les pestanyes no es mostren.
+- **Sense canvis:** les fitxes de sessió, la portada, el canal RSS i Mocions no depenen d’aquest filtre.
+
+Verificació executada: 51 escenaris de navegador (1 de nou a `tests/browser/seguiment.spec.ts`, amb sessions inventades). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil, sense desplaçament horitzontal.

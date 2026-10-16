@@ -106,3 +106,37 @@ test('canal RSS del Ple: XML vàlid amb els plens més recents i enllaç des de 
   expect(xml.match(/<item>/g)?.length).toBe(Math.min(25, data.sessions.filter(s => s.body === 'Ple').length));
   expect(xml).not.toContain('Junta de Govern Local del');
 });
+
+test('sessions: el Ple surt per defecte i es pot canviar d’òrgan amb recomptes', async ({page}) => {
+  const data = await catalog();
+  const session = (id: string, date: string, body: 'Ple' | 'Junta de Govern', title: string) => ({id, title, body, date, url: `https://example.org/${id}`, capturedAt: '2026-10-15', agenda: []});
+  const sessions = [
+    session('p1', '2025-03-25', 'Ple', 'Ple de prova del març'),
+    session('p2', '2026-01-27', 'Ple', 'Ple de prova del gener'),
+    session('j1', '2026-02-03', 'Junta de Govern', 'Junta de prova del febrer'),
+    session('j2', '2026-02-10', 'Junta de Govern', 'Junta de prova del febrer bis'),
+    session('j3', '2025-05-06', 'Junta de Govern', 'Junta de prova del maig'),
+  ];
+  await page.route('**/data/catalog.json', route => route.fulfill({json: {...data, sessions}}));
+  await page.goto('/#sessions');
+  const tabs = page.getByRole('group', {name: 'Òrgan de govern'});
+  const rows = page.locator('.session-row');
+  await expect(tabs.getByRole('button', {name: /^Ple/})).toHaveAttribute('aria-pressed', 'true');
+  await expect(tabs.getByRole('button', {name: /^Ple/})).toContainText('2');
+  await expect(tabs.getByRole('button', {name: /^Junta de Govern/})).toContainText('3');
+  await expect(tabs.getByRole('button', {name: /^Tots els òrgans/})).toContainText('5');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText('Ple de prova del gener');
+  await page.getByLabel('Any de les sessions').selectOption('2026');
+  await expect(rows).toHaveCount(1);
+  await expect(tabs.getByRole('button', {name: /^Junta de Govern/})).toContainText('2');
+  await tabs.getByRole('button', {name: /^Junta de Govern/}).click();
+  await expect(page).toHaveURL(/organ=Junta/);
+  await expect(rows).toHaveCount(2);
+  await tabs.getByRole('button', {name: /^Tots els òrgans/}).click();
+  await expect(page).toHaveURL(/organ=tots/);
+  await expect(rows).toHaveCount(3);
+  await tabs.getByRole('button', {name: /^Ple/}).click();
+  await expect(page).not.toHaveURL(/organ=/);
+  await expect(rows).toHaveCount(1);
+});

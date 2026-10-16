@@ -109,7 +109,7 @@ export function groupIndex(motions: Motion[], merges: Record<string, string>): G
   return {resolve: name => resolveKey(groupKey(name)), label: k => ranked(k)[0], name: own, variants: ranked, keys: [...members.keys()].sort((a, b) => ranked(a)[0].localeCompare(ranked(b)[0], 'ca'))};
 }
 
-const STOP = new Set('a al als amb aquest aquesta com contra cap del dels des dins els entre fins front mes mocio mocions municipal municipals nostra nostre obrir pel pels per perque presentada poble pugui puguin que relacio relativa respecte se ses seva seu seus sobre son tambe tots totes una unes uns castellar valles ajuntament grup grups ple vila davant defensa suport'.split(' '));
+const STOP = new Set('a al als amb aquest aquesta com contra cap del dels des dins els entre fins front mes mocio mocions municipal municipals nostra nostre obrir pel pels per perque presentada poble pugui puguin que relacio relativa respecte se ses seva seu seus sobre son tambe tots totes una unes uns castellar valles ajuntament grup grups ple vila davant defensa suport creacio millora millorar millores local locals catalunya garantir publica publiques publics public acord acords actuacio actuacions any anys atencio implementacio impuls impulsar aplicacio mesura mesures desenvolupament foment proposta reduida nova nous noves necessitat diferents general'.split(' '));
 export function recurringTopics(motions: Motion[], min = 3, limit = 18) {
   const counts = new Map<string, {word: string; ids: Set<string>; forms: Map<string, number>}>();
   for (const m of motions) for (const word of m.title.toLocaleLowerCase('ca').match(/[a-zà-ÿ·]+/g) ?? []) {

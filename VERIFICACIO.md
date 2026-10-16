@@ -170,3 +170,15 @@ Verificació executada: 42 escenaris de navegador (5 de nous a `tests/browser/su
 - **Límits:** ajuntaments sense ens dependents ni consolidació (empreses municipals, consorcis i mancomunitats poden desplaçar la despesa a transferències o fora del pressupost); imports nominals; el grup no té en compte comarca, estacionalitat turística ni competències delegades.
 
 Verificació executada: 45 escenaris de navegador (3 de nous a `tests/browser/municipis.spec.ts`, amb dades inventades; s’ha acotat a la taula d’execució la prova de pressupost que ara trobava dues files «Despeses de personal») i 2 de producció; 22 proves de la captura (1 de nova: grup per població, codis d’ens, capítols no informats i contrast amb el pressupost de Castellar). TypeScript correcte. Captura completa executada en local i captures revisades d’escriptori i mòbil amb el catàleg real.
+
+## Revisió d’estètica i funcionalitat · 16/10/2026
+
+- **Llegibilitat:** els prop de 100 colors de text del full d’estils queden en una paleta curta de variables (`--text`, `--text-2`, `--muted-strong`, `--muted`, `--amber-text`, `--teal-text`, `--blue`); cap text no baixa de 12 px, tampoc en mòbil (la impressió conserva les mides pròpies). Comprovació automàtica sobre 13 pantalles en ordinador i mòbil: cap text per sota de 12 px ni amb contrast inferior a 4,5:1 respecte al fons real, sense desbordament horitzontal ni errors de consola.
+- **Portada:** expedients i registres comptats sense les dates futures, com a Contractació; sessions convocades marcades com a pròximes; la targeta de dossiers buida cedeix el lloc als contractes menors a prop del llindar.
+- **Controls:** la campana indica les novetats de la darrera captura i porta a la llista (`#sources?seccio=novetats`); fora la rodona d’usuari i l’etiqueta del municipi amb aspecte de botó.
+- **Mòbil:** gràfics de barres en dues files; les taules amb columnes amagades s’esvaeixen a la vora (`src/scrollHints.ts`).
+- **Reorganització:** Pressupost comença per l’execució per capítols, amb enllaços a cada secció; Convenis mostra una sola llista amb pestanyes (`llista=vencuts|propers|revisar|tots`) i un enllaç amb codi obre la llista completa. Convenis passa de ~6.900 a ~2.200 px d’alçada en ordinador.
+- **Mocions:** suggeriments genèrics de variants del nom d’un grup (paraula distintiva compartida o forma abreujada), sense noms al codi; amb la captura real en surten 2 i cap fals positiu. Més paraules genèriques fora dels temes recurrents.
+- **Pes de les dades:** en compilar, les factures passen a `dist/data/suppliers.json` i el catàleg inicial baixa de 3,1 a 1,8 MB (de 450 a 288 kB comprimit). Només es carreguen a Proveïdors, Subvencions i, si hi ha novetats de factures, a Fonts i qualitat. `public/data/catalog.json` i el capturador no canvien.
+
+Verificació executada: 50 escenaris de navegador (2 de nous: suggeriments de variants i càrrega a demanda de les factures; s’adapta la de convenis a les pestanyes) i 3 de producció (1 de nou: fitxer de factures separat i carregat només quan cal); 25 proves de la captura. TypeScript i Vite correctes. Captures de `docs/captures/` regenerades.

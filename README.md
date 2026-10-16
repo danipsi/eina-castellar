@@ -13,11 +13,11 @@ MVP funcional d’exploració municipal, en català i amb estètica de tauler so
 - Pressupostos 2022–2026 i liquidacions 2022–2025 per capítol econòmic, comparació anual d’inicial/definitiu/liquidat i exportació de diferències.
 - Catàleg Ple/JGL i punts indexats dels plens amb filtre preventiu de privacitat.
 - Execució de les inversions (capítol 6) per exercici, a la portada i a Pressupost, amb crèdit inicial, definitiu, liquidat i crèdit no executat.
-- Seguiment de mocions del Ple: grup i títol extrets de l’ordre del dia, recompte per grup i any, temes recurrents, i estat de la votació, compliment i notes marcats a mà al navegador, amb exportació i importació JSON i CSV.
+- Seguiment de mocions del Ple: grup i títol extrets de l’ordre del dia, recompte per grup i any, temes recurrents, i estat de la votació, compliment i notes marcats a mà al navegador, amb exportació i importació JSON i CSV. Suggereix possibles variants del nom d’un mateix grup per unir-les.
 - Patrons a revisar en contractes menors: imports entre el 90 i el 100 % del llindar legal, diversos contractes del mateix adjudicatari o del mateix CPV en un exercici que sumats hi arriben, amb exportació CSV.
 - Venciments i pròrrogues: calendari de la fi del termini inicial dels contractes no menors (data publicada o estimada a partir de la durada) i expedients amb pròrrogues encadenades o extraordinàries segons les fites d’execució de la PSCP, amb exportació CSV.
 - Proveïdors i facturació: factures registrades agregades per emissor i exercici (només persones jurídiques amb denominació pròpia; la resta, sense nom), historial per exercici, contractes del catàleg amb el mateix nom i patró a revisar «per sobre de 18.150 € sense contracte trobat amb aquest nom», amb exportació CSV.
-- Subvencions i convenis: concessions de subvenció per entitat i exercici (només persones jurídiques amb denominació pròpia; la resta, agregada per acord sense nom), import sense convocatòria, entitats que també facturen i resum per acord; convenis en curs amb la data de fi passada, venciments dels pròxims 12 mesos i vigència a revisar, amb exportació CSV.
+- Subvencions i convenis: concessions de subvenció per entitat i exercici (només persones jurídiques amb denominació pròpia; la resta, agregada per acord sense nom), import sense convocatòria, entitats que també facturen i resum per acord; convenis en curs amb la data de fi passada, venciments dels pròxims 12 mesos i vigència a revisar, en pestanyes, amb exportació CSV.
 - Comparació amb els 56 municipis catalans de 15.000 a 35.000 habitants (padró de l’Idescat): pressupost inicial, definitiu o liquidat per habitant i capítol, mediana i interval central del grup, posició de Castellar i rànquing exportable per capítol, a la pàgina Pressupost. Les xifres de Castellar es contrasten amb les de la secció de pressupost en cada captura.
 - Resum a la portada: venciments dels pròxims sis mesos (contractes PSCP no menors i convenis en curs) i posició de Castellar entre municipis similars en el darrer exercici liquidat.
 - Canal RSS `ple.xml` amb els 25 plens més recents i els punts indexats, generat en compilar a partir de la mateixa captura.
@@ -33,7 +33,7 @@ npm run build
 npm run preview -- --port 4174
 ```
 
-`npm run build` genera **dist**, l’única carpeta que s’ha de publicar. `netlify.toml` configura ordre de build, Node.js 24, carpeta i capçaleres. No hi ha secrets ni consultes obligatòries a portals externs durant la consulta web. Les fonts tipogràfiques se serveixen localment.
+`npm run build` genera **dist**, l’única carpeta que s’ha de publicar. En compilar, les factures dels proveïdors se separen a `dist/data/suppliers.json`, que el web només carrega a les pàgines que les fan servir. `netlify.toml` configura ordre de build, Node.js 24, carpeta i capçaleres. No hi ha secrets ni consultes obligatòries a portals externs durant la consulta web. Les fonts tipogràfiques se serveixen localment.
 
 ```powershell
 py -3.13 scripts/ingest.py

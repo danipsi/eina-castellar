@@ -3,6 +3,7 @@ import {date, money, number} from './lib';
 import {companyKey} from './supplierData';
 import type {Entity} from './grantData';
 import type {Motion} from './motionData';
+import {entityHref, type EntityTrail} from './entityData';
 import {perCapita, versusMedian, type PeerChapter, type PeerMetric, type PeerStats} from './peerData';
 
 // Referències per als dossiers de les pàgines agregades. El localitzador desa les xifres tal com
@@ -35,6 +36,19 @@ export function motionEvidence(m: Motion, groups: string[], capturedAt: string):
   return {id: `motion:${m.id}`, kind: 'motion', title: m.title, url: first.url, source: 'Ordres del dia del Ple', capturedAt,
     locator: `Moció${groups.length ? ` · ${groups.join(' i ')}` : ''} · Ple del ${date(first.date)}, punt ${first.number}${m.appearances.length > 1 ? ` · ${m.appearances.length} sessions` : ''} · registre ${first.sessionId}`,
     href: `#motions?motion=${q(m.id)}`};
+}
+
+// La fitxa d'entitat desa el resum de totes les fonts; l'URL és la font més recent amb el nom.
+export function entityEvidence(t: EntityTrail, capturedAt: string): Evidence {
+  const years = t.years.map(y => y.year), span = years.length > 1 ? `${years.at(-1)}–${years[0]}` : String(years[0] ?? '');
+  const invoiced = t.invoices.reduce((s, r) => s + r.invoicedCents, 0), granted = t.grants.reduce((s, g) => s + g.amountCents, 0);
+  const pscp = t.years.reduce((s, y) => s + y.pscp, 0), rpc = t.years.reduce((s, y) => s + y.rpc, 0);
+  const url = t.invoices[0]?.url ?? t.grants[0]?.url ?? t.contracts[0]?.url ?? t.agreements[0]?.agreement.url ?? t.mentions[0]?.session.url ?? '';
+  return {id: `entity:${t.key}`, kind: 'entity', title: `${t.name} · fitxa d’entitat`, url, source: 'Fitxa d’entitat · factures, contractes, subvencions, convenis i sessions', capturedAt,
+    locator: [`Entitat ${t.name} (nom normalitzat «${t.key}»)${span ? ` · ${span}` : ''}`, `factures: ${plural(t.invoices.reduce((s, r) => s + r.invoices, 0), 'factura', 'factures')}, ${money(invoiced)} amb IVA`,
+      `contractes: PSCP ${number(pscp)} · RPC ${number(rpc)}`, `subvencions: ${plural(t.grants.reduce((s, g) => s + g.grants, 0), 'concessió', 'concessions')}, ${money(granted)}`,
+      `convenis: ${number(t.agreements.length)}`, `mencions a sessions: ${t.searchable ? number(t.mentions.length) : 'no cercades (nom massa curt)'}`].join(' · '),
+    href: entityHref(t.name)};
 }
 
 const METRIC_LABEL: Record<PeerMetric, string> = {initialCents: 'Pressupost inicial', finalCents: 'Crèdit definitiu', executedCents: 'Liquidat'};

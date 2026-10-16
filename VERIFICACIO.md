@@ -199,3 +199,12 @@ Verificació executada: 51 escenaris de navegador (1 de nou a `tests/browser/seg
 - **Resultats reals (captura del 16/10/2026):** «fundacio» dona 43 coincidències (2 contractes, 2 sessions, 21 proveïdors, 5 entitats subvencionades i 13 convenis); «residus», 35, en cinc tipus.
 
 Verificació executada: 53 escenaris de navegador (2 de nous a `tests/browser/cerca.spec.ts`, amb dades inventades) i 4 de producció (1 de nou: càrrega de factures a demanda des de la cerca). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil, sense desplaçament horitzontal.
+
+## Fitxa d’entitat o empresa · 16/10/2026
+
+- **Canvi:** pàgina nova `#entity?name=…` (`src/Entity.tsx`, `src/entityData.ts`) fora del menú, amb enllaços «Fitxa de l’entitat» al detall de Proveïdors i de Subvencions i a l’adjudicatari de la fitxa de contracte. Rastre per exercici amb factures (amb IVA), contractes PSCP (import adjudicat) i RPC per separat, subvencions, convenis (per any d’inici) i punts de sessió; exportació CSV i tipus d’evidència nou `entity` als dossiers.
+- **Criteri:** factures, contractes i subvencions per nom normalitzat (`companyKey`); convenis citats pel codi en una subvenció de l’entitat o amb el nom sencer al títol o a la descripció; punts de sessió amb el nom sencer al títol. Només es busca al text si el nom normalitzat té dues paraules i 8 caràcters o més (178 de 1.321 noms no en compleixen). Els contractes publicats dues vegades (mateix expedient, lot i import) es compten una vegada al rastre i es llisten tots.
+- **Resultats reals (captura del 16/10/2026):** 10 entitats tenen registres en tres fonts o més; 27 tenen convenis relacionats i només 3 apareixen a l’ordre del dia (l’ordre del dia rarament anomena l’entitat). Exemples: una societat amb factures 2022–2026, 6 registres de contracte i 2 concessions; la Generalitat, amb 13 convenis pel text i 1 punt de Ple.
+- **Enllaç segur:** l’apòstrof del nom es codifica (`%27`) perquè la importació de dossiers rebutja enllaços interns amb cometes.
+
+Verificació executada: 58 escenaris de navegador (3 de nous a `tests/browser/entitats.spec.ts`, amb dades inventades) i 4 de producció. TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil amb dades reals, sense errors de consola ni desbordament horitzontal.

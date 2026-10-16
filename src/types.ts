@@ -20,7 +20,7 @@ export type PeerMunicipality = {code: string; name: string; population: Record<s
 export type PeerRow = {code: string; year: number; side: 'despeses' | 'ingressos'; initialCents: (number | null)[]; finalCents: (number | null)[]; executedCents: (number | null)[]};
 export type Peers = {capturedAt: string; range: [number, number]; populationYear: number; self: string; populationUrl: string; initialUrl: string; liquidationUrl: string; municipalities: PeerMunicipality[]; rows: PeerRow[]};
 export type Catalog = {schemaVersion: 1; generatedAt: string; contracts: Contract[]; events: ContractEvent[]; budget: BudgetRow[]; sessions: Session[]; suppliers?: SupplierYear[]; suppliersFile?: string; grants?: Grant[]; agreements?: Agreement[]; peers?: Peers; sources: Source[]; changes: CatalogChange[]};
-export const EVIDENCE_KINDS = ['contract', 'session', 'budget', 'supplier', 'grant', 'agreement', 'motion', 'peer'] as const;
+export const EVIDENCE_KINDS = ['contract', 'session', 'budget', 'supplier', 'grant', 'agreement', 'motion', 'peer', 'entity'] as const;
 // href: enllaç intern (#pàgina?filtres) per tornar a la vista de l'Observatori on es va desar.
 export type Evidence = {id: string; kind: typeof EVIDENCE_KINDS[number]; title: string; url: string; source: string; capturedAt: string; locator: string; href?: string; addedAt?: string};
 export type Note = {id: string; text: string; kind: 'nota' | 'pregunta' | 'hipòtesi'; status: 'pendent' | 'contrastada' | 'descartada'; author?: string; updatedAt?: string};
@@ -29,4 +29,4 @@ export type RequestStatus = 'esborrany' | 'presentada' | 'resposta' | 'resposta 
 export type FormalRequest = {id: string; kind: RequestKind; text: string; createdAt: string; status: RequestStatus; presentedAt: string | null; registry: string; updatedAt?: string};
 export type Dossier = {id: string; title: string; createdAt: string; updatedAt: string; evidence: Evidence[]; notes: Note[]; requests?: FormalRequest[]; revision?: number; deleted?: Record<string, string>};
 export type Selection = {kind: 'contract'; item: Contract} | {kind: 'session'; item: Session} | {kind: 'budget'; item: BudgetRow};
-export type Page = 'overview' | 'contracts' | 'suppliers' | 'grants' | 'budget' | 'sessions' | 'motions' | 'dossiers' | 'sources' | 'search';
+export type Page = 'overview' | 'contracts' | 'suppliers' | 'entity' | 'grants' | 'budget' | 'sessions' | 'motions' | 'dossiers' | 'sources' | 'search';

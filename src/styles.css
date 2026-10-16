@@ -54,3 +54,5 @@ a.search-result{color:inherit}
 
 /* Afegeix al dossier des de proveïdors, subvencions, convenis i comparació */
 .supplier-detail .request-actions,.peer-ranking-heading .request-actions,.evidence-item .request-actions{margin-top:0}.evidence-item .request-actions{gap:16px}.agreement-table .save-evidence{display:flex;margin-top:6px}
+.entity-years td,.entity-years th{padding:9px 16px}.entity-years td:first-child,.entity-years th:first-child{padding-left:23px}.entity-controls{flex-wrap:wrap;gap:12px}.entity-controls .request-actions{margin-top:0;align-items:center}.entity-mentions{margin:0;padding:0 23px}.entity-mentions li:last-child{border-bottom:0}.entity-mentions .row-meta{margin-bottom:8px}
+.entity-invoices .row-meta{flex-wrap:nowrap;margin:0}

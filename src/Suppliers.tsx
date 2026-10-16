@@ -8,6 +8,7 @@ import {supplierEvidence} from './evidence';
 import {ContractTable, Stat} from './Explorer';
 import {updateRoute, useRoute} from './routes';
 import {PERIOD_LABEL} from './period';
+import {entityHref} from './entityData';
 
 const euros = (cents: number) => (cents / 100).toFixed(2).replace('.', ',');
 
@@ -20,7 +21,7 @@ function SupplierItem({row, all, matches, onSelect}: {row: SupplierYear; all: Su
     {open && <div className="supplier-detail">
       <div className="table-scroll"><table className="year-summary"><caption className="sr-only">Facturació per exercici de {row.name}</caption><thead><tr><th>Exercici</th><th className="numeric">Factures</th><th className="numeric">Import</th></tr></thead><tbody>{history(all, row.name!).map(h => <tr key={h.id} className={h.year === row.year ? 'current' : ''}><td>{h.year}</td><td className="numeric">{number(h.invoices)}</td><td className="numeric">{money(h.invoicedCents)}</td></tr>)}</tbody></table></div>
       {matches.length ? <><p className="small muted">Contractes del catàleg amb el mateix nom (qualsevol exercici i font). La coincidència és només per nom: comprova que es tracti de la mateixa empresa.</p><ContractTable rows={matches} onSelect={onSelect} compact/></> : <p className="small muted">No hi ha cap contracte al catàleg amb aquest nom. Pot ser que figuri amb un altre nom, que l’adjudicatari no sigui visible a la font, que vingui d’una central de compres o d’un exercici anterior al catàleg, o que la despesa no requereixi contracte. Cal comprovar-ho a l’expedient.</p>}
-      <div className="request-actions"><Original url={row.url}>Factures de {row.year} a la font</Original><SaveToDossier name={`${row.name}, factures ${row.year}`} evidence={() => supplierEvidence({...row, name: row.name!})}/></div>
+      <div className="request-actions"><a className="text-button" href={entityHref(row.name!)}>Fitxa de l’entitat</a><Original url={row.url}>Factures de {row.year} a la font</Original><SaveToDossier name={`${row.name}, factures ${row.year}`} evidence={() => supplierEvidence({...row, name: row.name!})}/></div>
     </div>}
   </details>;
 }

@@ -115,6 +115,9 @@ function AgreementsView({data}: {data: Catalog}) {
   const query = params.get('conveni') ?? '';
   const listed = all.filter(a => (!status || a.status === status) && (!query.trim() || normalize(`${a.code} ${a.title} ${a.description ?? ''}`).includes(normalize(query)))).sort((a, b) => b.code.localeCompare(a.code));
   const page = Math.max(1, Math.min(Math.ceil(listed.length / 20) || 1, Math.floor(Number(params.get('p'))) || 1));
+  // Una sola llista visible alhora; un enllaç amb codi de conveni obre la llista completa filtrada.
+  const lists = [['vencuts', 'Vençuts en curs', overdue.length], ['propers', 'Pròxims 12 mesos', upcoming.length], ['revisar', 'Vigència a revisar', review.length], ['tots', 'Tots els convenis', all.length]] as const;
+  const list = lists.some(([id]) => id === params.get('llista')) ? params.get('llista')! : query || status ? 'tots' : 'vencuts';
   function exportAll() {
     download('convenis.csv', csv([
       ['Codi', 'Títol', 'Descripció', 'Inici', 'Fi declarada', 'Estat', 'Prorrogable', 'Patrons a revisar', 'Subvencions que citen el codi', 'Import d’aquestes subvencions EUR', 'URL'],
@@ -126,19 +129,20 @@ function AgreementsView({data}: {data: Catalog}) {
     <div className="notice"><Scale size={19}/><p><strong>Patrons a revisar, no irregularitats.</strong> L’estat i les dates són els que declara l’Ajuntament a dades obertes. Un conveni «en curs» amb la data de fi passada pot haver-se prorrogat sense que consti a la font, o pot ser que l’estat no s’hagi actualitzat: només l’expedient ho aclareix.</p></div>
     <div className="view-controls"><span className="small muted">Referència: {date(reference)}</span><DownloadButton onClick={exportAll}>Exporta els convenis</DownloadButton></div>
     <div className="stats-grid three"><Stat label="En curs amb la data de fi passada" value={number(overdue.length)} detail={`de ${plural(open, 'conveni en curs', 'convenis en curs')} · ${plural(notExtendable, 'no prorrogable', 'no prorrogables')}`} accent/><Stat label="Vencen en els pròxims 12 mesos" value={number(upcoming.length)} detail="Convenis en curs amb la data de fi declarada"/><Stat label="Vigència a revisar" value={number(review.length)} detail="En curs sense data de fi, amb dates incoherents o amb més de 4 anys de durada"/></div>
-    <section className="panel" aria-labelledby="overdue-title"><div className="panel-heading"><div><h2 id="overdue-title">Consten en curs amb la data de fi passada</h2><p>Ordenats per la data de fi, del més recent al més antic</p></div></div>
+    <div className="segmented list-tabs" role="group" aria-label="Llista de convenis">{lists.map(([id, label, count]) => <button key={id} aria-pressed={list === id} className={list === id ? 'active' : ''} onClick={() => updateRoute({llista: id, p: null})}>{label} <span>{number(count)}</span></button>)}</div>
+    {list === 'vencuts' && <section className="panel" aria-labelledby="overdue-title"><div className="panel-heading"><div><h2 id="overdue-title">Consten en curs amb la data de fi passada</h2><p>Ordenats per la data de fi, del més recent al més antic</p></div></div>
       <Collapsible rows={overdue} grants={grants} reference={reference} label="convenis"/>
-    </section>
-    <section className="panel" aria-labelledby="upcoming-title"><div className="panel-heading"><div><h2 id="upcoming-title">Venciments dels pròxims 12 mesos</h2><p>Convenis en curs, per data de fi</p></div></div>
+    </section>}
+    {list === 'propers' && <section className="panel" aria-labelledby="upcoming-title"><div className="panel-heading"><div><h2 id="upcoming-title">Venciments dels pròxims 12 mesos</h2><p>Convenis en curs, per data de fi</p></div></div>
       <Collapsible rows={upcoming} grants={grants} reference={reference} label="convenis"/>
-    </section>
-    <section className="panel" aria-labelledby="review-title"><div className="panel-heading"><div><h2 id="review-title">Vigència a revisar</h2><p>Convenis en curs sense data de fi, amb una data sentinella o anterior a l’inici, o amb una durada superior a 4 anys</p></div></div>
+    </section>}
+    {list === 'revisar' && <section className="panel" aria-labelledby="review-title"><div className="panel-heading"><div><h2 id="review-title">Vigència a revisar</h2><p>Convenis en curs sense data de fi, amb una data sentinella o anterior a l’inici, o amb una durada superior a 4 anys</p></div></div>
       <Collapsible rows={review} grants={grants} reference={reference} label="convenis"/>
-    </section>
-    <section className="panel" aria-labelledby="agreements-title"><div className="panel-heading"><div><h2 id="agreements-title">Tots els convenis</h2><p>Del més recent al més antic pel codi</p></div></div>
+    </section>}
+    {list === 'tots' && <section className="panel" aria-labelledby="agreements-title"><div className="panel-heading"><div><h2 id="agreements-title">Tots els convenis</h2><p>Del més recent al més antic pel codi</p></div></div>
       <div className="filters"><div className="input-with-icon grow"><Search size={16}/><input aria-label="Cerca un conveni" placeholder="Cerca per codi o text…" value={query} onChange={e => updateRoute({conveni: e.target.value, p: null})}/></div><label>Estat<select aria-label="Estat del conveni" value={status} onChange={e => updateRoute({estat: e.target.value, p: null})}><option value="">Tots</option>{statuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
       {listed.length ? <><AgreementTable rows={listed.slice((page - 1) * 20, page * 20)} grants={grants} reference={reference}/><Pagination page={page} total={listed.length} setPage={p => updateRoute({p: String(p)})}/></> : <Empty title="Cap conveni amb aquests filtres"/>}
-    </section>
+    </section>}
     <div className="calculation-note"><Badge tone="blue">Criteri de càlcul</Badge><p>Catàleg municipal de convenis de col·laboració, sencer (no només el període {PERIOD_LABEL}); no n’informa imports ni signants. Es comparen la data de fi i l’estat declarats amb la data de referència. Les dates absents i les sentinella (1900) queden sense data. La durada dels convenis no pot superar els 4 anys, llevat que una norma prevegi un termini superior, i es pot prorrogar fins a 4 anys més (Llei 40/2015, art. 49 h); aquesta norma no s’aplica igual a tots els convenis, per això és un patró a revisar. Les subvencions vinculades són les que citen el codi del conveni al títol de l’acord.</p></div>
   </>;
 }

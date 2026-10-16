@@ -93,8 +93,12 @@ test('convenis: vençuts en curs, venciments i vigència a revisar', async ({pag
   await expect(overdue).toHaveCount(2);
   await expect(overdue.first()).toContainText('CONV2400002');
   await expect(overdue.first()).toContainText('No prorrogable');
+  await expect(page.locator('section[aria-labelledby="review-title"]')).toHaveCount(0);
+  await page.getByRole('button', {name: /Vigència a revisar/}).click();
+  await expect(page).toHaveURL(/llista=revisar/);
   await expect(page.locator('section[aria-labelledby="review-title"]')).toContainText('Durada superior a 4 anys');
 
+  await page.getByRole('button', {name: /Tots els convenis/}).click();
   await page.getByLabel('Estat del conveni').selectOption('Finalitzat');
   await expect(page.locator('section[aria-labelledby="agreements-title"] tbody tr')).toHaveCount(1);
   const download = page.waitForEvent('download');

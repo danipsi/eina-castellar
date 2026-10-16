@@ -28,7 +28,7 @@ export function App() {
   const selection = routeSelection(data, route.params.get('record'));
   const [saving, setSaving] = useState<Evidence | null>(null);
   const [dossiers, setDossiers] = useState<Dossier[]>([]), [storageError, setStorageError] = useState(''), [toast, setToast] = useState('');
-  const [dossiersLoading, setDossiersLoading] = useState(true);
+  const [dossiersLoading, setDossiersLoading] = useState(true), [suppliersError, setSuppliersError] = useState(false);
   const noteDrafts = useNoteDrafts();
   const [updateStatus, setUpdateStatus] = useState<{status?: string; message?: string; error?: string; attemptedAt?: string} | null>(null);
   const searchRef = useRef<HTMLInputElement>(null), mainRef = useRef<HTMLElement>(null);
@@ -39,6 +39,16 @@ export function App() {
     readDossiers().then(setDossiers).catch(e => setStorageError(e.message)).finally(() => setDossiersLoading(false));
     return () => abort.abort();
   }, []);
+  // Les factures es publiquen en un fitxer a part i només es carreguen a les pàgines que les fan servir.
+  const needsSuppliers = !!data?.suppliersFile && !data.suppliers && (['suppliers', 'grants'].includes(route.page) || (route.page === 'sources' && data.changes.some(c => c.source === 'suppliers')));
+  useEffect(() => {
+    if (!needsSuppliers || !data?.suppliersFile) return;
+    let active = true;
+    fetch(`${import.meta.env.BASE_URL}data/${data.suppliersFile}`).then(r => {if (!r.ok) throw new Error(); return r.json();})
+      .then(d => {if (!Array.isArray(d.suppliers) || d.generatedAt !== data.generatedAt) throw new Error(); if (active) setData(old => old && {...old, suppliers: d.suppliers});})
+      .catch(() => {if (active) {setSuppliersError(true); setData(old => old && {...old, suppliers: []});}});
+    return () => {active = false;};
+  }, [needsSuppliers]);
   useEffect(() => {setQuery(searchQuery); setMenu(false); window.scrollTo(0, 0); requestAnimationFrame(() => {mainRef.current?.querySelector<HTMLHeadingElement>('h1')?.focus(); const section = route.params.get('seccio'); if (section) document.getElementById(section)?.scrollIntoView();});}, [route.page, searchQuery, route.params.get('seccio')]);
   useEffect(() => {const handle = (e: KeyboardEvent) => {if ((e.ctrlKey || e.metaKey) && e.key === 'k') {e.preventDefault(); searchRef.current?.focus();}}; window.addEventListener('keydown', handle); return () => window.removeEventListener('keydown', handle);}, []);
   useEffect(() => {if (!toast) return; const timer = setTimeout(() => setToast(''), 3500); return () => clearTimeout(timer);}, [toast]);
@@ -72,6 +82,8 @@ export function App() {
         {(sourceStale || failedUpdate) && <div className="notice warning" role="status"><Activity size={18}/><p>{failedUpdate ? 'La darrera actualització no s’ha completat. Es conserva l’última captura vàlida.' : 'Aquesta captura té més de vuit dies. Consulta la data i la cobertura abans d’interpretar les dades.'} <button className="text-button" onClick={() => go('sources')}>Veure fonts</button></p></div>}
         {route.page === 'dossiers' ? <>{error && <div className="notice warning" role="status"><p>Les dades públiques no estan disponibles. Pots continuar consultant i exportant els dossiers d’aquest navegador.</p></div>}{dossiersLoading ? <p role="status">Carregant els dossiers…</p> : <Dossiers dossiers={dossiers} onSave={saveDossier} onDelete={deleteDossier} storageError={storageError} drafts={noteDrafts.drafts} onDraftChange={noteDrafts.changeDraft} draftError={noteDrafts.error}/>}</> : error ? <Empty title="Dades no disponibles"><p>{error}</p><button className="button primary" onClick={() => location.reload()}>Torna a carregar</button><p><a href="#dossiers">Obre els dossiers locals</a></p></Empty> : !data ? <div className="loading" role="status"><span className="spinner"/><h1>Preparant l’Observatori</h1><p>Carregant les dades municipals i les seves fonts…</p></div> : <>
           {route.params.has('record') && !selection && <div className="notice warning" role="status"><p>Aquest registre no està disponible en la captura actual. Pot haver estat retirat o l’enllaç pot ser incorrecte. <button className="text-button" onClick={() => updateRoute({record: null})}>Tanca l’avís</button></p></div>}
+          {suppliersError && ['suppliers', 'grants', 'sources'].includes(route.page) && <div className="notice warning" role="status"><p>No s’han pogut carregar les factures i els proveïdors. Torna a carregar la pàgina; la resta de dades es poden consultar igualment.</p></div>}
+          {needsSuppliers ? <div className="loading" role="status"><span className="spinner"/><h1>Carregant les factures</h1><p>Proveïdors i entitats que també facturen…</p></div> : <>
           {route.page === 'overview' && <Overview data={data} dossiers={dossiers} go={go} onSelect={selectRecord}/>}
           {route.page === 'contracts' && <Contracts data={data} onSelect={selectRecord}/>}
           {route.page === 'suppliers' && <Suppliers data={data} onSelect={selectRecord}/>}
@@ -80,7 +92,7 @@ export function App() {
           {route.page === 'sessions' && <Sessions data={data} onSelect={selectRecord}/>}
           {route.page === 'motions' && <Motions data={data} onSelect={selectRecord}/>}
           {route.page === 'sources' && <Sources data={data}/>}
-          {route.page === 'search' && <SearchResults data={data} query={route.q} onSelect={selectRecord}/>}
+          {route.page === 'search' && <SearchResults data={data} query={route.q} onSelect={selectRecord}/>}</>}
           <footer className="main-footer"><span>Observatori de Castellar · No és un portal oficial de l’Ajuntament</span><button onClick={() => go('sources')}>Captura {date(data.generatedAt)}<ArrowUpRight size={13}/></button></footer>
         </>}
       </main>

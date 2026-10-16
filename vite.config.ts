@@ -1,4 +1,5 @@
-import {readFileSync} from 'node:fs';
+import {existsSync, readFileSync, writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
 import {defineConfig, type Plugin} from 'vite';
 import type {Catalog} from './src/types.ts';
 
@@ -45,8 +46,29 @@ function feedPlugin(): Plugin {
   };
 }
 
+const SUPPLIERS = 'suppliers.json';
+
+// En compilar, les factures (la secció més pesada) van a un fitxer a part que el web només carrega
+// a les pàgines que les fan servir. public/data/catalog.json i el capturador no canvien.
+function splitSuppliersPlugin(): Plugin {
+  let outDir = 'dist';
+  return {
+    name: 'observatori-split-suppliers',
+    apply: 'build',
+    configResolved(config) {outDir = resolve(config.root, config.build.outDir);},
+    closeBundle() {
+      const path = resolve(outDir, 'data/catalog.json');
+      if (!existsSync(path)) return;
+      const {suppliers, ...catalog} = JSON.parse(readFileSync(path, 'utf8'));
+      if (!Array.isArray(suppliers)) return;
+      writeFileSync(resolve(outDir, 'data', SUPPLIERS), JSON.stringify({generatedAt: catalog.generatedAt, suppliers}));
+      writeFileSync(path, JSON.stringify({...catalog, suppliersFile: SUPPLIERS}));
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [feedPlugin()],
+  plugins: [feedPlugin(), splitSuppliersPlugin()],
   server: {
     // Windows: no mantenir els JSON oberts mentre el capturador els substitueix.
     watch: {ignored: ['**/public/data', '**/public/data/**', '**/dades/**', '**/recerca/**']},

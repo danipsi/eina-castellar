@@ -34,6 +34,21 @@ test('el paquet de producció carrega sota el nom del repositori', async ({page}
   expect(failed).toEqual([]);
 });
 
+test('les factures es publiquen a part i es carreguen només quan calen', async ({page}) => {
+  const catalog = await (await page.request.get('./data/catalog.json')).json();
+  expect(catalog.suppliers).toBeUndefined();
+  expect(catalog.suppliersFile).toBe('suppliers.json');
+  const loaded: string[] = [];
+  page.on('request', request => {if (request.url().endsWith('/data/suppliers.json')) loaded.push(request.url());});
+  await page.goto('./');
+  await expect(page.getByRole('heading', {name: 'La informació pública, connectada.'})).toBeVisible();
+  expect(loaded).toEqual([]);
+  await page.goto('./#suppliers');
+  await expect(page.getByRole('heading', {name: 'Proveïdors i facturació'})).toBeVisible();
+  await expect(page.locator('.supplier-item').first()).toBeVisible();
+  expect(loaded).toHaveLength(1);
+});
+
 test('una captura fallida mostra l’avís i manté les dades consultables', async ({page}) => {
   await page.route('**/data/status.json', route => route.fulfill({json: {status: 'error', attemptedAt: new Date().toISOString()}}));
   await page.goto('./');

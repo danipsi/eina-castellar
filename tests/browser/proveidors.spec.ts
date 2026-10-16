@@ -72,3 +72,18 @@ test('proveïdors: catàleg antic sense factures', async ({page}) => {
   await page.goto('/#suppliers');
   await expect(page.getByText('Aquesta captura encara no inclou les factures')).toBeVisible();
 });
+
+test('factures en un fitxer a part: càrrega a demanda i avís si falla', async ({page}) => {
+  const data: Catalog = JSON.parse(await fs.readFile('public/data/catalog.json', 'utf8'));
+  const {suppliers: _omitted, ...rest} = data;
+  let fail = false;
+  await page.route('**/data/catalog.json', route => route.fulfill({json: {...rest, contracts, suppliersFile: 'suppliers.json'}}));
+  await page.route('**/data/suppliers.json', route => fail ? route.fulfill({status: 404, body: ''}) : route.fulfill({json: {generatedAt: data.generatedAt, suppliers}}));
+  await page.goto('/#suppliers');
+  await expect(page.locator('.supplier-item', {hasText: 'EMPRESA ALFA'})).toBeVisible();
+  fail = true;
+  await page.reload();
+  await expect(page.getByRole('status').filter({hasText: 'No s’han pogut carregar les factures'})).toBeVisible();
+  await page.goto('/#overview');
+  await expect(page.getByRole('status').filter({hasText: 'No s’han pogut carregar les factures'})).toHaveCount(0);
+});

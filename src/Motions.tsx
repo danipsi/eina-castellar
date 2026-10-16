@@ -2,7 +2,7 @@ import {useMemo, useRef, useState} from 'react';
 import {ArrowRight, CalendarDays, Gavel, Merge, Save, Search, Trash2, Upload} from 'lucide-react';
 import type {Catalog, Selection} from './types';
 import {csv, date, download, normalize, number, today} from './lib';
-import {COMPLIANCE, MOTION_STATUSES, extractMotions, groupIndex, mergeStates, parseMotionState, recurringTopics, useMotionState} from './motionData';
+import {COMPLIANCE, MOTION_STATUSES, extractMotions, groupIndex, mergeStates, parseMotionState, recurringTopics, suggestGroupMerges, useMotionState} from './motionData';
 import type {Compliance, GroupIndex, Motion, MotionMark, MotionState, MotionStatus} from './motionData';
 import {Badge, DownloadButton, Empty, Modal, Original, PageTitle, Pagination, ShareLink} from './ui';
 import {Stat} from './Explorer';
@@ -23,6 +23,9 @@ export function Motions({data, onSelect}: {data: Catalog; onSelect: (s: Selectio
   const motions = useMemo(() => extractMotions(data), [data]);
   const groups = useMemo(() => groupIndex(motions, state.merges), [motions, state.merges]);
   const topics = useMemo(() => recurringTopics(motions), [motions]);
+  const [dismissed, setDismissed] = useState<string[]>(readDismissed);
+  const suggestions = useMemo(() => suggestGroupMerges(motions, groups, dismissed), [motions, groups, dismissed]);
+  const dismiss = (a: string, b: string) => {const next = [...dismissed, [a, b].sort().join('|')]; setDismissed(next); try {localStorage.setItem(DISMISSED_KEY, JSON.stringify(next));} catch { /* es descarta només en aquesta sessió */ }};
   const years = useMemo(() => [...new Set(motions.map(m => m.date.slice(0, 4)))].sort(), [motions]);
   const open = motions.find(m => m.id === params.get('motion')) ?? null;
   const setOpen = (m: Motion | null) => updateRoute({motion: m?.id ?? null}, !!m);
@@ -68,6 +71,7 @@ export function Motions({data, onSelect}: {data: Catalog; onSelect: (s: Selectio
     <div className="stats-grid"><Stat label="Mocions indexades" value={number(motions.length)} detail={`${number(motions.reduce((n, m) => n + m.appearances.length, 0))} punts a l’ordre del dia del Ple`}/><Stat label="Grups proposants" value={number(groups.keys.length)} detail="Variants del nom agrupades"/><Stat label="Amb estat marcat" value={`${number(marked)} de ${number(motions.length)}`} detail="Marques d’aquest navegador" accent/><Stat label="Aprovades per complir" value={number(toFollow)} detail="Aprovades sense compliment complet"/></div>
     <div className="motion-grid">
       <section className="panel" aria-labelledby="motion-matrix-title"><div className="panel-heading"><div><h2 id="motion-matrix-title">Mocions per grup i any</h2><p>Any de la primera aparició a l’ordre del dia · una moció conjunta compta a cada grup</p></div><button className="text-button" onClick={() => setMerging(true)}><Merge size={14}/>Unifica noms</button></div>
+        {suggestions.length > 0 && <div className="merge-suggestions"><p><strong>Possibles variants del mateix grup.</strong> Comprova-ho a l’ordre del dia abans d’unir-les.</p><ul>{suggestions.map(({from, to}) => <li key={from + to}><span>{groups.label(from)} <ArrowRight size={13}/> {groups.label(to)}</span><button className="button secondary" onClick={() => save({...state, merges: {...state.merges, [from]: to}})}>Uneix</button><button className="text-button" onClick={() => dismiss(from, to)}>Descarta</button></li>)}</ul></div>}
         <div className="table-scroll"><table className="motion-matrix"><caption className="sr-only">Nombre de mocions per grup proposant i any</caption><thead><tr><th>Grup</th>{years.map(y => <th key={y} className="numeric">{y}</th>)}<th className="numeric">Total</th></tr></thead><tbody>{groups.keys.map(k => {
           const own = motions.filter(m => m.groups.some(g => groups.resolve(g) === k));
           return <tr key={k} className={group === k ? 'selected' : ''}><th scope="row"><button className="link-cell" onClick={() => set({group: group === k ? null : k, year: null})}>{groups.label(k)}</button></th>{years.map(y => {const n = own.filter(m => m.date.startsWith(y)).length; return <td key={y} className="numeric">{n ? <button className="link-cell" aria-label={`${groups.label(k)}, ${y}: ${n} mocions`} onClick={() => set({group: k, year: y})}>{n}</button> : <span className="muted">·</span>}</td>;})}<td className="numeric"><strong>{own.length}</strong></td></tr>;
@@ -153,4 +157,9 @@ export function PendingMotions({data, onOpen}: {data: Catalog; onOpen: () => voi
       : <p className="muted small pending-empty">{marked ? 'Cap moció aprovada pendent de complir entre les que has marcat.' : 'Marca a Mocions el resultat de les votacions i el compliment dels acords; aquí veuràs les aprovades que encara no s’han complert.'}</p>}
     {pending.length > 5 && <div className="panel-bottom"><p className="small muted">{number(pending.length - 5)} més al seguiment de mocions.</p></div>}
   </section>;
+}
+
+const DISMISSED_KEY = 'observatori-mocions-suggeriments-descartats';
+function readDismissed(): string[] {
+  try {const value: unknown = JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]'); return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];} catch {return [];}
 }

@@ -109,7 +109,34 @@ export function groupIndex(motions: Motion[], merges: Record<string, string>): G
   return {resolve: name => resolveKey(groupKey(name)), label: k => ranked(k)[0], name: own, variants: ranked, keys: [...members.keys()].sort((a, b) => ranked(a)[0].localeCompare(ranked(b)[0], 'ca'))};
 }
 
-const STOP = new Set('a al als amb aquest aquesta com contra cap del dels des dins els entre fins front mes mocio mocions municipal municipals nostra nostre obrir pel pels per perque presentada poble pugui puguin que relacio relativa respecte se ses seva seu seus sobre son tambe tots totes una unes uns castellar valles ajuntament grup grups ple vila davant defensa suport creacio millora millorar millores local locals catalunya garantir publica publiques publics public acord acords actuacio actuacions any anys atencio implementacio impuls impulsar aplicacio mesura mesures desenvolupament foment proposta reduida nova nous noves necessitat diferents general'.split(' '));
+// Possibles variants del nom d'un mateix grup que la regla anterior no uneix. Només són suggeriments:
+// l'usuari decideix si els uneix. Coincideixen si comparteixen una paraula distintiva («X-Y» i «X Z-Y»)
+// o si una forma breu comença com la llarga i en conté l'inici d'una altra paraula («AbCas» i «Ab per Castell»).
+const GROUP_FILLER = new Set(['de', 'del', 'la', 'el', 'els', 'les', 'per', 'i', 'grup', 'municipal', 'castellar', 'valles']);
+const nameTokens = (name: string) => normalize(name.replace(/([a-z])([A-Z])/g, '$1 $2')).split(/[^a-z0-9]+/).filter(Boolean);
+export type GroupSuggestion = {from: string; to: string};
+export function suggestGroupMerges(motions: Motion[], groups: GroupIndex, dismissed: string[] = []): GroupSuggestion[] {
+  const special = new Set([groupKey(ALL_GROUPS), groupKey(NO_GROUP)]);
+  const size = new Map<string, number>();
+  for (const m of motions) for (const k of new Set(m.groups.map(groups.resolve))) size.set(k, (size.get(k) ?? 0) + 1);
+  const keys = groups.keys.filter(k => !special.has(k));
+  const related = (a: string, b: string) => {
+    const ta = groups.variants(a).flatMap(nameTokens), tb = groups.variants(b).flatMap(nameTokens);
+    const distinctive = (t: string) => t.length >= 3 && !GROUP_FILLER.has(t);
+    if (ta.some(t => distinctive(t) && tb.includes(t))) return true;
+    const abbreviates = (short: string, long: string[]) => short.length <= 8 && long.length > 1 && short[0] === long[0][0] && long.slice(1).some(t => t.length >= 4 && short.includes(t.slice(0, 4)));
+    return groups.variants(a).some(va => groups.variants(b).some(vb => abbreviates(groupKey(va), nameTokens(vb)) || abbreviates(groupKey(vb), nameTokens(va))));
+  };
+  const out: GroupSuggestion[] = [];
+  keys.forEach((a, i) => keys.slice(i + 1).forEach(b => {
+    if (dismissed.includes([a, b].sort().join('|')) || !related(a, b)) return;
+    const [from, to] = (size.get(a) ?? 0) < (size.get(b) ?? 0) ? [a, b] : [b, a];
+    out.push({from, to});
+  }));
+  return out;
+}
+
+const STOP = new Set('a al als amb aquest aquesta com contra cap del dels des dins els entre fins front mes mocio mocions municipal municipals nostra nostre obrir pel pels per perque presentada poble pugui puguin que relacio relativa respecte se ses seva seu seus sobre son tambe tots totes una unes uns castellar valles ajuntament grup grups ple vila davant defensa suport creacio millora millorar millores local locals catalunya garantir publica publiques publics public acord acords actuacio actuacions any anys atencio implementacio impuls impulsar aplicacio mesura mesures desenvolupament foment proposta reduida nova nous noves necessitat diferents general demanar integral model municipi persones'.split(' '));
 export function recurringTopics(motions: Motion[], min = 3, limit = 18) {
   const counts = new Map<string, {word: string; ids: Set<string>; forms: Map<string, number>}>();
   for (const m of motions) for (const word of m.title.toLocaleLowerCase('ca').match(/[a-zà-ÿ·]+/g) ?? []) {

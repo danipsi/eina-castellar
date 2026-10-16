@@ -98,3 +98,23 @@ test('mocions: marques locals, filtres, unió de grups i còpia restaurada', asy
   await page.getByLabel('Importa seguiment de mocions JSON').setInputFiles({name: 'dolent.json', mimeType: 'application/json', buffer: Buffer.from('{"schemaVersion":1,"marks":{"x":{}}}')});
   await expect(page.getByRole('status').filter({hasText: 'no és un seguiment de mocions vàlid'})).toBeVisible();
 });
+
+test('mocions: suggeriments de variants del nom d’un grup', async ({page}) => {
+  const variants = [
+    ple('v1', '2025-03-25', ['Moció presentada pel grup municipal Delta per Castellar per a la millora del parc', 'Moció presentada pel grup municipal Eix de Castellar-ZRT per a l’enllumenat públic']),
+    ple('v2', '2026-03-31', ['Moció presentada pel grup municipal DxCast per a la reforma de la plaça', 'Moció presentada pel grup municipal Eix ZRT-PV sobre els horaris', 'Moció presentada pel grup municipal Omega sobre la biblioteca']),
+  ];
+  await page.route('**/data/catalog.json', async route => {const data: Catalog = JSON.parse(await fs.readFile('public/data/catalog.json', 'utf8')); await route.fulfill({json: {...data, sessions: variants}});});
+  await page.goto('/#motions');
+  const suggestions = page.locator('.merge-suggestions li');
+  await expect(suggestions).toHaveCount(2);
+  await expect(page.locator('.merge-suggestions')).not.toContainText('Omega');
+  await expect(page.locator('.motion-matrix tbody tr')).toHaveCount(5);
+  await suggestions.filter({hasText: 'DxCast'}).getByRole('button', {name: 'Uneix'}).click();
+  await expect(page.locator('.motion-matrix tbody tr')).toHaveCount(4);
+  await suggestions.filter({hasText: 'Eix'}).getByRole('button', {name: 'Descarta'}).click();
+  await expect(page.locator('.merge-suggestions')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('.motion-matrix tbody tr')).toHaveCount(4);
+  await expect(page.locator('.merge-suggestions')).toHaveCount(0);
+});

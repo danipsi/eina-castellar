@@ -13,7 +13,7 @@ La consulta funciona amb la captura inclosa; no cal actualitzar les dades per pr
 1. A Visió general, prem **Explora un cas real**, o cerca `CONT2400054` al camp superior i prem Retorn.
 2. Obre un resultat de la PSCP: veuràs els lots, els imports i les observacions de les altres fonts.
 3. A Cronologia documentada, consulta el punt 6 del ple de **31/03/2026**. És una menció a l’ordre del dia, no una confirmació del resultat de la votació.
-4. Prem **Afegeix al dossier**, crea un dossier i posa-hi un nom.
+4. Prem **Afegeix al dossier**, crea un dossier i posa-hi un nom. El mateix botó és a les fitxes de sessió i de pressupost, al detall d’un proveïdor o d’una entitat subvencionada, a cada conveni, a la fitxa d’una moció i al rànquing de la comparació amb municipis. Cada font desa les xifres tal com es veien en aquell moment i un enllaç **Obre a l’Observatori** per tornar a la mateixa vista.
 5. A Dossiers, afegeix una pregunta o nota. Les hipòtesis s’identifiquen explícitament i tenen estat de revisió.
 6. Prem **Còpia JSON**. Aquest és el fitxer que permet restaurar fonts i notes amb **Importa**. Markdown és per llegir o editar el dossier; Imprimeix permet desar-lo com a PDF des del navegador.
 

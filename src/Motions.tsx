@@ -4,7 +4,8 @@ import type {Catalog, Selection} from './types';
 import {csv, date, download, normalize, number, today} from './lib';
 import {COMPLIANCE, MOTION_STATUSES, extractMotions, groupIndex, mergeStates, parseMotionState, recurringTopics, suggestGroupMerges, useMotionState} from './motionData';
 import type {Compliance, GroupIndex, Motion, MotionMark, MotionState, MotionStatus} from './motionData';
-import {Badge, DownloadButton, Empty, Modal, Original, PageTitle, Pagination, ShareLink} from './ui';
+import {Badge, DownloadButton, Empty, Modal, Original, PageTitle, Pagination, SaveToDossier, ShareLink} from './ui';
+import {motionEvidence} from './evidence';
 import {Stat} from './Explorer';
 import {updateRoute, useRoute} from './routes';
 
@@ -98,7 +99,7 @@ export function Motions({data, onSelect}: {data: Catalog; onSelect: (s: Selectio
       <Pagination page={page} total={rows.length} setPage={p => updateRoute({p: p === 1 ? null : String(p)})}/>
     </section>
     <p className="info-line">Grup i títol s’extreuen del text publicat a l’ordre del dia; comprova’ls a l’original. Una moció que torna al Ple amb el mateix títol es compta una sola vegada.</p>
-    {open && <MotionEditor key={open.id} motion={open} groups={groups} mark={mark(open)} onClose={() => setOpen(null)} onOpenSession={id => {const item = data.sessions.find(s => s.id === id); setOpen(null); if (item) onSelect({kind: 'session', item});}} onSave={next => {
+    {open && <MotionEditor key={open.id} motion={open} groups={groups} mark={mark(open)} capturedAt={data.sessions.find(s => s.id === open.appearances[0].sessionId)?.capturedAt ?? data.generatedAt} onClose={() => setOpen(null)} onOpenSession={id => {const item = data.sessions.find(s => s.id === id); setOpen(null); if (item) onSelect({kind: 'session', item});}} onSave={next => {
       const marks = {...state.marks};
       if (next) marks[open.id] = next; else delete marks[open.id];
       save({...state, marks}); setOpen(null);
@@ -107,7 +108,7 @@ export function Motions({data, onSelect}: {data: Catalog; onSelect: (s: Selectio
   </>;
 }
 
-function MotionEditor({motion, groups, mark, onClose, onSave, onOpenSession}: {motion: Motion; groups: GroupIndex; mark?: MotionMark; onClose: () => void; onSave: (m: MotionMark | null) => void; onOpenSession: (id: string) => void}) {
+function MotionEditor({motion, groups, mark, capturedAt, onClose, onSave, onOpenSession}: {motion: Motion; groups: GroupIndex; mark?: MotionMark; capturedAt: string; onClose: () => void; onSave: (m: MotionMark | null) => void; onOpenSession: (id: string) => void}) {
   const withdrawn = motion.appearances.some(a => a.withdrawn);
   const [status, setStatus] = useState<MotionStatus>(mark?.status ?? (withdrawn ? 'retirada' : ''));
   const [compliance, setCompliance] = useState<Compliance>(mark?.compliance ?? '');
@@ -115,6 +116,7 @@ function MotionEditor({motion, groups, mark, onClose, onSave, onOpenSession}: {m
   return <Modal title="Seguiment de la moció" onClose={onClose} wide>
     <div className="detail-labels">{motion.groups.map(g => <Badge key={g} tone="blue">{groups.label(groups.resolve(g))}</Badge>)}<span>{date(motion.date)}</span></div>
     <h3 className="detail-title">{motion.title}</h3>
+    <div className="detail-actions"><SaveToDossier evidence={() => motionEvidence(motion, motion.groups.map(g => groups.label(groups.resolve(g))), capturedAt)}/></div>
     <h3>Aparicions a l’ordre del dia del Ple</h3>
     <ol className="timeline">{motion.appearances.map(a => <li key={a.sessionId}><span className="timeline-dot"/><div className="row-meta"><time>{date(a.date)}</time><Badge>Punt {a.number}</Badge>{a.carriedOver && <Badge tone="amber">Venia de sobre la taula</Badge>}{a.withdrawn && <Badge tone="amber">Retirada de l’ordre del dia</Badge>}</div><p className="small">{a.text}</p><div className="request-actions"><button className="text-button" onClick={() => onOpenSession(a.sessionId)}><CalendarDays size={14}/>Obre la sessió</button><Original url={a.url}>Acta i vídeo originals</Original></div></li>)}</ol>
     <h3>Seguiment del grup</h3>

@@ -1,4 +1,5 @@
 import type {Dossier, RequestKind, RequestStatus} from './types';
+import {EVIDENCE_KINDS} from './types';
 
 export const REQUEST_KINDS: RequestKind[] = ['informacio', 'pregunta', 'prec'];
 export const REQUEST_STATUSES: RequestStatus[] = ['esborrany', 'presentada', 'resposta', 'resposta parcial', 'sense resposta'];
@@ -67,6 +68,8 @@ export async function removeDossier(dossier: Dossier) {
   });
 }
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
+// Només enllaços interns a una pàgina de l'Observatori, mai a un altre lloc.
+const INTERNAL = /^#[a-z]+(?:\?[^\s<>"']*)?$/;
 const STAMP = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
 // Conserva els identificadors vàlids perquè una segona importació del mateix dossier es fusioni en lloc de duplicar-se.
 export function parseDossier(value: unknown): Dossier {
@@ -83,9 +86,9 @@ export function parseDossierBody(d: Record<string, unknown>): Dossier {
   const stamp = (v: unknown): string | undefined => v === undefined ? undefined : typeof v === 'string' && STAMP.test(v) ? v : bad();
   if (!str(d.title, 160) || !d.title.trim() || !str(d.createdAt, 40) || !str(d.updatedAt, 40) || !Array.isArray(d.notes) || !Array.isArray(d.evidence) || d.notes.length > 1000 || d.evidence.length > 2000) return bad();
   const evidence = d.evidence.map(e => {
-    if (!e || !str(e.id, 300) || !['contract', 'session', 'budget'].includes(e.kind) || !str(e.title) || !str(e.url, 2000) || safeUrl(e.url) === '#' || !str(e.source) || !str(e.capturedAt, 40) || !str(e.locator)) return bad();
+    if (!e || !str(e.id, 300) || !EVIDENCE_KINDS.includes(e.kind) || !(e.href === undefined || (str(e.href, 1000) && INTERNAL.test(e.href))) || !str(e.title) || !str(e.url, 2000) || safeUrl(e.url) === '#' || !str(e.source) || !str(e.capturedAt, 40) || !str(e.locator)) return bad();
     const addedAt = stamp(e.addedAt);
-    return {id: e.id, kind: e.kind, title: e.title, url: e.url, source: e.source, capturedAt: e.capturedAt, locator: e.locator, ...(addedAt ? {addedAt} : {})};
+    return {id: e.id, kind: e.kind, title: e.title, url: e.url, source: e.source, capturedAt: e.capturedAt, locator: e.locator, ...(e.href ? {href: e.href} : {}), ...(addedAt ? {addedAt} : {})};
   });
   const notes = d.notes.map(n => {
     if (!n || !str(n.text, 50000) || !['nota', 'pregunta', 'hipòtesi'].includes(n.kind) || !['pendent', 'contrastada', 'descartada'].includes(n.status) || (n.author !== undefined && !str(n.author, 40))) return bad();

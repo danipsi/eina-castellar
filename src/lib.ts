@@ -27,7 +27,11 @@ export function budgetTotal(rows: BudgetRow[], field: 'initialCents' | 'finalCen
 export const ratio = (executed: number | null, total: number | null) => executed !== null && total !== null && total > 0 ? executed / total * 100 : null;
 export const pct = (n: number | null) => n === null ? 'No calculable' : new Intl.NumberFormat('ca-ES', {maximumFractionDigits: 1}).format(n) + '%';
 
+const RECORD_PAGE = {contract: 'contracts', session: 'sessions', budget: 'budget'} as const;
 export function evidenceFor(selection: Selection): Evidence {
+  return {...baseEvidence(selection), href: `#${RECORD_PAGE[selection.kind]}?record=${encodeURIComponent(`${selection.kind}:${selection.item.id}`)}`};
+}
+function baseEvidence(selection: Selection): Evidence {
   const {item, kind} = selection;
   if (kind === 'contract') {
     const c = selection.item;

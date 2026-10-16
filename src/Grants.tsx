@@ -5,7 +5,8 @@ import {csv, date, download, money, normalize, number, pct, today} from './lib';
 import {companyKey, defaultYear} from './supplierData';
 import {elapsed, entitiesFor, entityHistory, grantsByAgreement, callsFor, invoicesByEntity, isOpen, isOverdue, isUpcoming, issuesFor, needsReview} from './grantData';
 import type {Call, Entity} from './grantData';
-import {Badge, DownloadButton, Empty, Original, PageTitle, Pagination, ShareLink} from './ui';
+import {Badge, DownloadButton, Empty, Original, PageTitle, Pagination, SaveToDossier, ShareLink} from './ui';
+import {agreementEvidence, grantEvidence} from './evidence';
 import {Stat} from './Explorer';
 import {updateRoute, useRoute} from './routes';
 import {PERIOD_LABEL} from './period';
@@ -29,6 +30,7 @@ function EntityItem({entity, all, invoices, total}: {entity: Entity; all: Grant[
       <div className="table-scroll"><table className="year-summary"><caption className="sr-only">Subvencions per exercici de {entity.name}</caption><thead><tr><th>Exercici</th><th className="numeric">Concessions</th><th className="numeric">Import</th><th className="numeric">Factures registrades</th></tr></thead><tbody>{entityHistory(all, entity.key).map(h => {const billed = invoices.get(`${entity.key}|${h.year}`); return <tr key={h.year} className={h.year === year ? 'current' : ''}><td>{h.year}</td><td className="numeric">{number(h.grants)}</td><td className="numeric">{money(h.amountCents)}</td><td className="numeric">{billed === undefined ? '—' : money(billed)}</td></tr>;})}</tbody></table></div>
       <div className="table-scroll"><table className="grant-table"><caption className="sr-only">Concessions de {year} a {entity.name}</caption><thead><tr><th>Data</th><th>Acord</th><th className="numeric">Import</th></tr></thead><tbody>{entity.grants.map(g => <tr key={g.id}><td className="nowrap">{date(g.date)}</td><td><span className="grant-call">{g.call}</span><span className="row-meta"><Badge tone={g.procedure === 'convocatòria' ? '' : 'amber'}>{g.procedure === 'convocatòria' ? 'Amb convocatòria' : 'Sense convocatòria'}</Badge>{g.agreement && <AgreementLink code={g.agreement}/>}<Original url={g.url}>Concessions del dia a la font</Original></span></td><td className="numeric">{money(g.amountCents)}{g.repeated > 0 && <small>la font la repeteix</small>}</td></tr>)}</tbody></table></div>
       {invoiced !== undefined && <p className="small muted">Hi ha factures registrades a nom d’un emissor amb el mateix nom el {year}. Pot ser una activitat diferent de la subvencionada; convé comprovar que no es financi dues vegades la mateixa despesa.</p>}
+      <div className="request-actions"><SaveToDossier name={`${entity.name}, subvencions ${year}`} evidence={() => grantEvidence(entity)}/></div>
     </div>}
   </details>;
 }
@@ -90,7 +92,7 @@ function AgreementTable({rows, grants, reference}: {rows: Agreement[]; grants: M
     return <tr key={a.id}><td><div className="row-meta"><span className="mono">{a.code}</span>{issues.map(i => <Badge key={i} tone={i === 'Venç en 12 mesos' ? 'blue' : 'amber'}>{i}</Badge>)}</div><span className="agreement-title">{a.title}</span>{a.description && <small className="muted agreement-description">{a.description}</small>}{linked.length > 0 && <small className="muted">{plural(linked.length, 'subvenció citada', 'subvencions citades')} amb aquest codi · {money(linked.reduce((s, g) => s + g.amountCents, 0))}</small>}</td>
       <td className="nowrap"><strong>{a.start ? date(a.start) : 'Inici no informat'}</strong><small className="muted">{a.end ? `fins al ${date(a.end)}` : a.endIssue === 'sentinella' ? 'Data de fi sentinella (1900)' : 'Sense data de fi'}</small>{isOverdue(a, reference) && <small className="muted">venç fa {elapsed(a.end!, reference)}</small>}</td>
       <td><Badge tone={isOpen(a) ? 'green' : ''}>{a.status}</Badge><small className="muted">{a.extendable === null ? 'Pròrroga no informada' : a.extendable ? 'Prorrogable' : 'No prorrogable'}</small></td>
-      <td><Original url={a.url}>Font</Original></td></tr>;
+      <td><Original url={a.url}>Font</Original><SaveToDossier name={`conveni ${a.code}`} evidence={() => agreementEvidence(a)}/></td></tr>;
   })}</tbody></table></div>;
 }
 

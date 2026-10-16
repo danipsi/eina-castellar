@@ -1,6 +1,7 @@
-import {ArrowDownToLine, ArrowUpRight, ChevronLeft, ChevronRight, CircleHelp, Link, TableProperties, X} from 'lucide-react';
-import {useEffect, useRef, useState} from 'react';
+import {ArrowDownToLine, ArrowUpRight, ChevronLeft, ChevronRight, CircleHelp, FolderPlus, Link, TableProperties, X} from 'lucide-react';
+import {createContext, useContext, useEffect, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
+import type {Evidence} from './types';
 import {createPortal} from 'react-dom';
 import {date, number, safeUrl} from './lib';
 import {loadSource, parseSource, showValue} from './sourceData';
@@ -72,4 +73,12 @@ export function Modal({title, children, onClose, wide = false}: {title: string; 
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {const dialog = ref.current!; dialog.showModal(); const before = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => {dialog.close(); document.body.style.overflow = before;};}, []);
   return <dialog ref={ref} className={wide ? 'modal wide' : 'modal'} aria-label={title} onCancel={e => {e.preventDefault(); e.stopPropagation(); onClose();}} onClick={e => {if (e.target === e.currentTarget) onClose();}}><div className="modal-head"><h2>{title}</h2><button className="icon-button" onClick={onClose} aria-label="Tanca"><X size={20}/></button></div><div className="modal-content">{children}</div></dialog>;
+}
+
+// L'App obre el diàleg «Afegeix al dossier»; les pàgines només hi passen la referència.
+export const SaveEvidenceContext = createContext<((evidence: Evidence) => void) | null>(null);
+export function SaveToDossier({evidence, name}: {evidence: () => Evidence; name?: string}) {
+  const save = useContext(SaveEvidenceContext);
+  if (!save) return null;
+  return <button type="button" className="text-button save-evidence no-print" aria-label={name ? `Afegeix al dossier: ${name}` : undefined} onClick={() => save(evidence())}><FolderPlus size={14}/>Afegeix al dossier</button>;
 }

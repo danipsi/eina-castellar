@@ -3,7 +3,8 @@ import {Scale, Search} from 'lucide-react';
 import type {Catalog, Contract, Selection, SupplierYear} from './types';
 import {compactMoney, csv, date, download, money, normalize, number, pct} from './lib';
 import {INVOICE_THRESHOLD, PUBLIC_BODY, contractsBySupplier, defaultYear, history, isFlagged, matchesFor} from './supplierData';
-import {Badge, DownloadButton, Empty, Original, PageTitle, Pagination, ShareLink} from './ui';
+import {Badge, DownloadButton, Empty, Original, PageTitle, Pagination, SaveToDossier, ShareLink} from './ui';
+import {supplierEvidence} from './evidence';
 import {ContractTable, Stat} from './Explorer';
 import {updateRoute, useRoute} from './routes';
 import {PERIOD_LABEL} from './period';
@@ -19,7 +20,7 @@ function SupplierItem({row, all, matches, onSelect}: {row: SupplierYear; all: Su
     {open && <div className="supplier-detail">
       <div className="table-scroll"><table className="year-summary"><caption className="sr-only">Facturació per exercici de {row.name}</caption><thead><tr><th>Exercici</th><th className="numeric">Factures</th><th className="numeric">Import</th></tr></thead><tbody>{history(all, row.name!).map(h => <tr key={h.id} className={h.year === row.year ? 'current' : ''}><td>{h.year}</td><td className="numeric">{number(h.invoices)}</td><td className="numeric">{money(h.invoicedCents)}</td></tr>)}</tbody></table></div>
       {matches.length ? <><p className="small muted">Contractes del catàleg amb el mateix nom (qualsevol exercici i font). La coincidència és només per nom: comprova que es tracti de la mateixa empresa.</p><ContractTable rows={matches} onSelect={onSelect} compact/></> : <p className="small muted">No hi ha cap contracte al catàleg amb aquest nom. Pot ser que figuri amb un altre nom, que l’adjudicatari no sigui visible a la font, que vingui d’una central de compres o d’un exercici anterior al catàleg, o que la despesa no requereixi contracte. Cal comprovar-ho a l’expedient.</p>}
-      <Original url={row.url}>Factures de {row.year} a la font</Original>
+      <div className="request-actions"><Original url={row.url}>Factures de {row.year} a la font</Original><SaveToDossier name={`${row.name}, factures ${row.year}`} evidence={() => supplierEvidence({...row, name: row.name!})}/></div>
     </div>}
   </details>;
 }

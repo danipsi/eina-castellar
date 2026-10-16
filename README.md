@@ -70,7 +70,7 @@ La captura té paginació contrastada, reintents, validació territorial, bloque
 
 Si Windows bloqueja una substitució, tanca la previsualització i repeteix l’actualització. Després d’una captura correcta cal recarregar el navegador; la vigilància de fitxers ignora les dades per evitar bloquejos.
 
-Flux de GitHub Actions actiu a `.github/workflows/pages.yml`, amb captura diària programada a les 04.23 UTC, publicació a Pages i historial de captures JSON a Git. La primera publicació ha finalitzat correctament amb la captura inclosa del 13/10/2026; encara no s’ha verificat una captura nova des de GitHub. El filtre preventiu de textos no substitueix una revisió de privacitat. Consulta els límits detallats a la guia.
+Flux de GitHub Actions actiu a `.github/workflows/pages.yml`, amb captura diària programada a les 04.23 UTC, publicació a Pages i historial de captures JSON a Git. La primera publicació ha finalitzat correctament amb la captura inclosa del 13/10/2026, i la captura diària des de GitHub funciona des del 15/10/2026. El filtre preventiu de textos no substitueix una revisió de privacitat. Consulta els límits detallats a la guia.
 
 ## Recerca de partida
 

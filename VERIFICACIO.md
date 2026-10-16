@@ -189,3 +189,13 @@ Verificació executada: 50 escenaris de navegador (2 de nous: suggeriments de va
 - **Sense canvis:** les fitxes de sessió, la portada, el canal RSS i Mocions no depenen d’aquest filtre.
 
 Verificació executada: 51 escenaris de navegador (1 de nou a `tests/browser/seguiment.spec.ts`, amb sessions inventades). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil, sense desplaçament horitzontal.
+
+## Cerca transversal ampliada · 16/10/2026
+
+- **Abast:** la cerca (`src/searchData.ts`, abans a `src/lib.ts`) indexa també les mocions (títol i grup), els proveïdors i les entitats subvencionades (només persones jurídiques amb nom publicat, agrupades pel nom normalitzat de tots els exercicis) i els convenis (títol, codi i descripció). Contractes i sessions continuen obrint la fitxa; la resta porta a la pàgina corresponent amb el filtre posat (`#suppliers?year=…&name=…`, `#grants?year=…&name=…`, `#grants?view=convenis&conveni=…`, `#motions?motion=…`). L’exercici és el darrer en què el proveïdor factura o l’entitat rep subvencions.
+- **Codi exacte:** un codi de conveni (`CONV…`) dona coincidència exacta, com els expedients.
+- **Factures:** en producció, la cerca amb text demana `data/suppliers.json` sense bloquejar la pàgina; els proveïdors s’afegeixen quan arriben i, si falla, apareix l’avís habitual.
+- **Pestanyes:** «Tot» i els tipus amb resultats, amb recompte; un tipus sense resultats s’amaga llevat que sigui el seleccionat. Recompte en singular quan n’hi ha un.
+- **Resultats reals (captura del 16/10/2026):** «fundacio» dona 43 coincidències (2 contractes, 2 sessions, 21 proveïdors, 5 entitats subvencionades i 13 convenis); «residus», 35, en cinc tipus.
+
+Verificació executada: 53 escenaris de navegador (2 de nous a `tests/browser/cerca.spec.ts`, amb dades inventades) i 4 de producció (1 de nou: càrrega de factures a demanda des de la cerca). TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil, sense desplaçament horitzontal.

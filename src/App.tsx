@@ -1,7 +1,9 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {Activity, ArrowRight, ArrowUpRight, Bell, BookOpen, CalendarDays, Check, ChevronRight, Database, FileText, FolderOpen, Gavel, HandCoins, LayoutDashboard, Menu, Receipt, Search, ShieldCheck, Wallet, X} from 'lucide-react';
+import {Activity, ArrowRight, ArrowUpRight, Bell, BookOpen, CalendarDays, Check, ChevronRight, Database, FileText, FolderOpen, Gavel, HandCoins, Handshake, LayoutDashboard, Menu, Receipt, Search, ShieldCheck, Wallet, X} from 'lucide-react';
 import type {Catalog, Dossier, Evidence, Page, Selection} from './types';
-import {budgetTotal, compactMoney, date, evidenceFor, exactResults, isFutureDate, looksLikeExpedient, makeSearch, number, pct, ratio, today} from './lib';
+import {budgetTotal, compactMoney, date, evidenceFor, isFutureDate, looksLikeExpedient, number, pct, ratio, today} from './lib';
+import {SEARCH_KINDS, exactResults, makeSearch} from './searchData';
+import type {SearchHit, SearchKind} from './searchData';
 import {DossierConflict, readDossiers, removeDossier, writeDossier} from './storage';
 import {useNoteDrafts} from './drafts';
 import {ContractTable, Contracts, Budget, Detail, Sessions, Stat} from './Explorer';
@@ -40,15 +42,17 @@ export function App() {
     return () => abort.abort();
   }, []);
   // Les factures es publiquen en un fitxer a part i només es carreguen a les pàgines que les fan servir.
+  // La cerca també les carrega, però sense aturar la pàgina: els resultats de proveïdors s'hi afegeixen en arribar.
   const needsSuppliers = !!data?.suppliersFile && !data.suppliers && (['suppliers', 'grants'].includes(route.page) || (route.page === 'sources' && data.changes.some(c => c.source === 'suppliers')));
+  const wantsSuppliers = needsSuppliers || (!!data?.suppliersFile && !data.suppliers && route.page === 'search' && !!route.q.trim());
   useEffect(() => {
-    if (!needsSuppliers || !data?.suppliersFile) return;
+    if (!wantsSuppliers || !data?.suppliersFile) return;
     let active = true;
     fetch(`${import.meta.env.BASE_URL}data/${data.suppliersFile}`).then(r => {if (!r.ok) throw new Error(); return r.json();})
       .then(d => {if (!Array.isArray(d.suppliers) || d.generatedAt !== data.generatedAt) throw new Error(); if (active) setData(old => old && {...old, suppliers: d.suppliers});})
       .catch(() => {if (active) {setSuppliersError(true); setData(old => old && {...old, suppliers: []});}});
     return () => {active = false;};
-  }, [needsSuppliers]);
+  }, [wantsSuppliers]);
   useEffect(() => {setQuery(searchQuery); setMenu(false); window.scrollTo(0, 0); requestAnimationFrame(() => {mainRef.current?.querySelector<HTMLHeadingElement>('h1')?.focus(); const section = route.params.get('seccio'); if (section) document.getElementById(section)?.scrollIntoView();});}, [route.page, searchQuery, route.params.get('seccio')]);
   useEffect(() => {const handle = (e: KeyboardEvent) => {if ((e.ctrlKey || e.metaKey) && e.key === 'k') {e.preventDefault(); searchRef.current?.focus();}}; window.addEventListener('keydown', handle); return () => window.removeEventListener('keydown', handle);}, []);
   useEffect(() => {if (!toast) return; const timer = setTimeout(() => setToast(''), 3500); return () => clearTimeout(timer);}, [toast]);
@@ -82,7 +86,7 @@ export function App() {
         {(sourceStale || failedUpdate) && <div className="notice warning" role="status"><Activity size={18}/><p>{failedUpdate ? 'La darrera actualització no s’ha completat. Es conserva l’última captura vàlida.' : 'Aquesta captura té més de vuit dies. Consulta la data i la cobertura abans d’interpretar les dades.'} <button className="text-button" onClick={() => go('sources')}>Veure fonts</button></p></div>}
         {route.page === 'dossiers' ? <>{error && <div className="notice warning" role="status"><p>Les dades públiques no estan disponibles. Pots continuar consultant i exportant els dossiers d’aquest navegador.</p></div>}{dossiersLoading ? <p role="status">Carregant els dossiers…</p> : <Dossiers dossiers={dossiers} onSave={saveDossier} onDelete={deleteDossier} storageError={storageError} drafts={noteDrafts.drafts} onDraftChange={noteDrafts.changeDraft} draftError={noteDrafts.error}/>}</> : error ? <Empty title="Dades no disponibles"><p>{error}</p><button className="button primary" onClick={() => location.reload()}>Torna a carregar</button><p><a href="#dossiers">Obre els dossiers locals</a></p></Empty> : !data ? <div className="loading" role="status"><span className="spinner"/><h1>Preparant l’Observatori</h1><p>Carregant les dades municipals i les seves fonts…</p></div> : <>
           {route.params.has('record') && !selection && <div className="notice warning" role="status"><p>Aquest registre no està disponible en la captura actual. Pot haver estat retirat o l’enllaç pot ser incorrecte. <button className="text-button" onClick={() => updateRoute({record: null})}>Tanca l’avís</button></p></div>}
-          {suppliersError && ['suppliers', 'grants', 'sources'].includes(route.page) && <div className="notice warning" role="status"><p>No s’han pogut carregar les factures i els proveïdors. Torna a carregar la pàgina; la resta de dades es poden consultar igualment.</p></div>}
+          {suppliersError && ['suppliers', 'grants', 'sources', 'search'].includes(route.page) &&<div className="notice warning" role="status"><p>No s’han pogut carregar les factures i els proveïdors. Torna a carregar la pàgina; la resta de dades es poden consultar igualment.</p></div>}
           {needsSuppliers ? <div className="loading" role="status"><span className="spinner"/><h1>Carregant les factures</h1><p>Proveïdors i entitats que també facturen…</p></div> : <>
           {route.page === 'overview' && <Overview data={data} dossiers={dossiers} go={go} onSelect={selectRecord}/>}
           {route.page === 'contracts' && <Contracts data={data} onSelect={selectRecord}/>}
@@ -127,21 +131,33 @@ function Overview({data, dossiers, go, onSelect}: {data: Catalog; dossiers: Doss
     <div className="method-strip"><ShieldCheck size={20}/><p><strong>Una dada és un punt de partida.</strong> Els imports, les dates i les relacions conserven la font. Les mancances de cobertura s’expliquen abans d’extreure conclusions.</p><button className="text-button" onClick={() => go('sources')}>Fonts i criteris<ArrowRight size={14}/></button></div></>;
 }
 
+const KIND_ICONS: Record<SearchKind, typeof Search> = {contract: FileText, session: CalendarDays, motion: Gavel, supplier: Receipt, grant: HandCoins, agreement: Handshake};
+const KIND_LABELS: Record<SearchKind, string> = {contract: 'Contractació', session: 'Sessió', motion: 'Moció', supplier: 'Proveïdor', grant: 'Subvencions', agreement: 'Conveni'};
+
 function SearchResults({data, query, onSelect}: {data: Catalog; query: string; onSelect: (s: Selection) => void}) {
   const {params} = useRoute();
-  const filter = ['contract', 'session'].includes(params.get('type') ?? '') ? params.get('type')! : 'all';
+  const filter = SEARCH_KINDS.some(([id]) => id === params.get('type')) ? params.get('type')! : 'all';
   const setFilter = (value: string) => updateRoute({type: value === 'all' ? null : value});
   const index = useMemo(() => makeSearch(data), [data]);
   const exact = useMemo(() => exactResults(data, query), [data, query]);
   const isCode = looksLikeExpedient(query) || exact.length > 0;
   const approximate = isCode && params.get('approx') === '1';
-  const result = useMemo(() => isCode && !approximate ? exact : query.trim() ? index.search(query) : [], [isCode, approximate, exact, index, query]);
+  const result = useMemo(() => (isCode && !approximate ? exact : query.trim() ? index.search(query) as unknown as SearchHit[] : []), [isCode, approximate, exact, index, query]);
   const contracts = useMemo(() => new Map(data.contracts.map(c => [c.id, c])), [data]);
   const sessions = useMemo(() => new Map(data.sessions.map(s => [s.id, s])), [data]);
   const [limit, setLimit] = useState(30);
   useEffect(() => {setLimit(30);}, [query, filter, approximate]);
   const shown = result.filter(r => filter === 'all' || r.kind === filter);
-  return <><PageTitle eyebrow="Cerca transversal" title={query ? `Resultats per «${query}»` : 'Què vols investigar?'} actions={<ShareLink/>}>{query ? `${number(result.length)} ${isCode && !approximate ? 'coincidències exactes del codi' : approximate ? 'resultats aproximats (poden ser altres expedients)' : 'coincidències'} en contractació i ordres del dia indexats.` : 'Escriu un expedient o un tema al cercador superior.'}</PageTitle>{isCode && <div className="notice search-mode"><p>{approximate ? 'Estàs veient també codis semblants. No impliquen cap relació amb l’expedient.' : 'Només registres i sessions amb aquest codi exacte. Les fonts i els lots es mantenen separats.'}</p><button className="button secondary" onClick={() => updateRoute({approx: approximate ? null : '1'})}>{approximate ? 'Mostra només el codi exacte' : 'Mostra resultats aproximats'}</button></div>}<div className="segmented search-tabs">{[['all', 'Tot'], ['contract', 'Contractació'], ['session', 'Sessions']].map(([id, label]) => <button key={id} className={filter === id ? 'active' : ''} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label} <span>{id === 'all' ? result.length : result.filter(r => r.kind === id).length}</span></button>)}</div><section className="panel search-results">{shown.slice(0, limit).map(r => {const item = r.kind === 'contract' ? contracts.get(r.itemId) : sessions.get(r.itemId); if (!item) return null; return <button key={r.id} className="search-result" onClick={() => onSelect(r.kind === 'contract' ? {kind: 'contract', item: contracts.get(r.itemId)!} : {kind: 'session', item: sessions.get(r.itemId)!})}><span className="result-icon">{r.kind === 'contract' ? <FileText size={21}/> : <CalendarDays size={21}/>}</span><span><span className="row-meta"><Badge tone={r.kind === 'contract' ? 'blue' : 'green'}>{r.kind === 'contract' ? 'Contractació' : 'Sessió'}</Badge>{'source' in item && <code>{item.source} · {item.expedient}{item.lot ? ` · lot ${item.lot}` : ''}</code>}<span>{date(item.date)}</span></span><strong>{item.title}</strong>{'agenda' in item && <small>{item.agenda.length} punts indexats · ordre del dia</small>}</span><ArrowRight size={18}/></button>;})}{!shown.length && <Empty title={query ? 'No s’han trobat coincidències' : 'Cerca entre les fonts'}>Prova un codi com CONT2400054 o una paraula com piscina.</Empty>}{shown.length > limit && <button className="load-more" onClick={() => setLimit(n => n + 30)}>Mostra més resultats ({shown.length - limit} pendents)</button>}</section></>;
+  const loadingInvoices = !!data.suppliersFile && !data.suppliers && !isCode;
+  const tabs = ([['all', 'Tot'], ...SEARCH_KINDS] as [string, string][]).map(([id, label]) => [id, label, id === 'all' ? result.length : result.filter(r => r.kind === id).length] as const).filter(([id, , count]) => id === 'all' || id === filter || count > 0 || !query);
+  function row(r: SearchHit) {
+    const Icon = KIND_ICONS[r.kind];
+    const content = (meta: React.ReactNode, title: string, detail?: string) => <><span className="result-icon"><Icon size={21}/></span><span><span className="row-meta"><Badge tone={r.kind === 'contract' ? 'blue' : r.kind === 'session' ? 'green' : undefined}>{KIND_LABELS[r.kind]}</Badge>{meta}</span><strong>{title}</strong>{detail && <small>{detail}</small>}</span><ArrowRight size={18}/></>;
+    if (r.kind === 'contract') {const item = contracts.get(r.itemId); return item && <button key={r.id} className="search-result" onClick={() => onSelect({kind: 'contract', item})}>{content(<><code>{item.source} · {item.expedient}{item.lot ? ` · lot ${item.lot}` : ''}</code><span>{date(item.date)}</span></>, item.title)}</button>;}
+    if (r.kind === 'session') {const item = sessions.get(r.itemId); return item && <button key={r.id} className="search-result" onClick={() => onSelect({kind: 'session', item})}>{content(<span>{date(item.date)}</span>, item.title, `${item.agenda.length} punts indexats · ordre del dia`)}</button>;}
+    return <a key={r.id} className="search-result" href={r.href}>{content(r.date ? <span>{date(r.date)}</span> : null, r.title ?? '', r.meta)}</a>;
+  }
+  return <><PageTitle eyebrow="Cerca transversal" title={query ? `Resultats per «${query}»` : 'Què vols investigar?'} actions={<ShareLink/>}>{query ? `${number(result.length)} ${isCode && !approximate ? (result.length === 1 ? 'coincidència exacta del codi' : 'coincidències exactes del codi') : approximate ? (result.length === 1 ? 'resultat aproximat (pot ser un altre expedient)' : 'resultats aproximats (poden ser altres expedients)') : result.length === 1 ? 'coincidència' : 'coincidències'} en contractació, sessions, mocions, proveïdors, subvencions i convenis.` : 'Escriu un expedient, un tema o el nom d’una empresa o entitat al cercador superior.'}</PageTitle>{isCode && <div className="notice search-mode"><p>{approximate ? 'Estàs veient també codis semblants. No impliquen cap relació amb l’expedient.' : 'Només registres, sessions i convenis amb aquest codi exacte. Les fonts i els lots es mantenen separats.'}</p><button className="button secondary" onClick={() => updateRoute({approx: approximate ? null : '1'})}>{approximate ? 'Mostra només el codi exacte' : 'Mostra resultats aproximats'}</button></div>}<div className="segmented search-tabs list-tabs" role="group" aria-label="Tipus de resultat">{tabs.map(([id, label, count]) => <button key={id} className={filter === id ? 'active' : ''} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label} <span>{number(count)}</span></button>)}</div>{loadingInvoices && query && <p className="info-line" role="status">Carregant també les factures dels proveïdors…</p>}<section className="panel search-results">{shown.slice(0, limit).map(row)}{!shown.length && <Empty title={query ? 'No s’han trobat coincidències' : 'Cerca entre les fonts'}>Prova un codi com CONT2400054, una paraula com piscina o el nom d’una entitat.</Empty>}{shown.length > limit && <button className="load-more" onClick={() => setLimit(n => n + 30)}>Mostra més resultats ({shown.length - limit} pendents)</button>}</section><p className="info-line">Proveïdors i subvencions només inclouen persones jurídiques amb nom publicat. Una coincidència de nom no prova que es tracti de la mateixa entitat.</p></>;
 }
 
 function Sources({data}: {data: Catalog}) {

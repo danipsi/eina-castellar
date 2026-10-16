@@ -9,7 +9,7 @@ MVP funcional d’exploració municipal, en català i amb estètica de tauler so
 ## Funcions
 
 - Contractació PSCP/RPC separada, filtres compartibles, dates futures apartades per defecte i CSV equivalent als filtres amb adjudicatari publicable.
-- Cerca exacta d’expedients amb aproximacions opcionals; cerca temàtica MiniSearch i fitxes compartibles amb lots, fonts i cronologia.
+- Cerca exacta d’expedients i convenis amb aproximacions opcionals; cerca temàtica MiniSearch a contractes, sessions, mocions, proveïdors, subvencions i convenis, i fitxes compartibles amb lots, fonts i cronologia.
 - Pressupostos 2022–2026 i liquidacions 2022–2025 per capítol econòmic, comparació anual d’inicial/definitiu/liquidat i exportació de diferències.
 - Catàleg Ple/JGL i punts indexats dels plens amb filtre preventiu de privacitat.
 - Execució de les inversions (capítol 6) per exercici, a la portada i a Pressupost, amb crèdit inicial, definitiu, liquidat i crèdit no executat.

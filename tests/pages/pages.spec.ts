@@ -49,6 +49,16 @@ test('les factures es publiquen a part i es carreguen només quan calen', async 
   expect(loaded).toHaveLength(1);
 });
 
+test('la cerca carrega les factures a demanda i hi afegeix els proveïdors', async ({page}) => {
+  const {suppliers} = await (await page.request.get('./data/suppliers.json')).json();
+  const name: string = suppliers.find((r: {name: string | null}) => r.name).name;
+  await page.goto('./#search?q=' + encodeURIComponent(name));
+  const tab = page.getByRole('group', {name: 'Tipus de resultat'}).getByRole('button', {name: /^Proveïdors/});
+  await expect(tab).toBeVisible();
+  await tab.click();
+  await expect(page.locator('.search-result').first()).toContainText('Proveïdor');
+});
+
 test('una captura fallida mostra l’avís i manté les dades consultables', async ({page}) => {
   await page.route('**/data/status.json', route => route.fulfill({json: {status: 'error', attemptedAt: new Date().toISOString()}}));
   await page.goto('./');

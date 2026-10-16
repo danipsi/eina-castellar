@@ -1,4 +1,3 @@
-import MiniSearch from 'minisearch';
 import type {BudgetRow, Catalog, Contract, Dossier, Evidence, Selection} from './types';
 
 const euros = new Intl.NumberFormat('ca-ES', {style: 'currency', currency: 'EUR', minimumFractionDigits: 2});
@@ -15,14 +14,6 @@ export function today() {
 }
 export const isFutureDate = (value: string | null, reference = today()) => !!value && !Number.isNaN(Date.parse(value)) && value.slice(0, 10) > reference;
 export const looksLikeExpedient = (query: string) => /^[A-Z]{2,}\d{5,}(?:[-/][A-Z0-9]+)*$/i.test(query.trim());
-export function exactResults(data: Catalog, query: string) {
-  const key = expKey(query);
-  if (!key) return [];
-  return [
-    ...data.contracts.filter(c => expKey(c.expedient) === key).map(c => ({id: 'contract:' + c.id, kind: 'contract', itemId: c.id})),
-    ...data.sessions.filter(s => s.agenda.some(a => a.expedients.some(e => expKey(e) === key))).map(s => ({id: 'session:' + s.id, kind: 'session', itemId: s.id})),
-  ];
-}
 export const safeUrl = (s: string) => {try {const u = new URL(s); return ['https:', 'http:'].includes(u.protocol) ? u.href : '#';} catch {return '#';}};
 const BUDGET_CHAPTERS = new Set(Array.from({length: 9}, (_, index) => String(index + 1)));
 export function budgetTotal(rows: BudgetRow[], field: 'initialCents' | 'finalCents' | 'executedCents') {
@@ -36,14 +27,6 @@ export function budgetTotal(rows: BudgetRow[], field: 'initialCents' | 'finalCen
 export const ratio = (executed: number | null, total: number | null) => executed !== null && total !== null && total > 0 ? executed / total * 100 : null;
 export const pct = (n: number | null) => n === null ? 'No calculable' : new Intl.NumberFormat('ca-ES', {maximumFractionDigits: 1}).format(n) + '%';
 
-export function makeSearch(data: Catalog) {
-  const index = new MiniSearch({fields: ['title', 'expedient', 'text'], storeFields: ['kind', 'itemId'], processTerm: t => normalize(t), searchOptions: {prefix: true, fuzzy: 0.15, boost: {expedient: 4, title: 2}, combineWith: 'AND'}});
-  index.addAll([
-    ...data.contracts.map(c => ({id: 'contract:' + c.id, itemId: c.id, kind: 'contract', title: c.title, expedient: c.expedient, text: `${c.supplier ?? ''} ${c.procedure} ${c.type}`})),
-    ...data.sessions.map(s => ({id: 'session:' + s.id, itemId: s.id, kind: 'session', title: s.title, expedient: s.agenda.flatMap(a => a.expedients).join(' '), text: s.agenda.map(a => a.title).join(' ')})),
-  ]);
-  return index;
-}
 export function evidenceFor(selection: Selection): Evidence {
   const {item, kind} = selection;
   if (kind === 'contract') {

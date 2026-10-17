@@ -509,7 +509,7 @@ def parse_agenda(text):
 
 MINUTES_LINK = re.compile(r'class="step-header">\s*Acta\s*</p>[\s\S]{0,800}?href="(/session/downloadItem/[a-f0-9]+)"')
 POINT_END = re.compile(r'Es pot (?:visualitzar|consultar) (?:aquest|el) punt', re.I)
-VOTES_PARSER = 1
+VOTES_PARSER = 2
 
 def minutes_link(text):
     m = MINUTES_LINK.search(text)
@@ -523,55 +523,88 @@ def fold(value):
     return re.sub(r'[^a-z0-9]+', ' ', value).strip()
 
 def verdict(text):
-    # «La proposta fou aprovada…», «Text esmenat: aprovat…»: el subjecte no canvia el sentit.
-    t = re.sub(r'^(?:(?:el )?text esmenat|la proposta|la mocio)\s+', '', fold(text))[:160]
+    # «La proposta fou aprovada…», «Sentit de l'acord: la moció NO s'aprova…», «text moció inicial, s'aprova…»:
+    # el subjecte no canvia el sentit.
+    t = re.sub(r'^(?:sentit de l acord )?(?:(?:el )?text esmenat |text (?:de la )?mocio inicial |la proposta |la mocio )?', '', fold(text))[:160]
     majority = 'unanimitat' if 'unanim' in t else 'majoria' if 'majoria' in t else None
-    if re.match(r'(?:no s aprov|no aprova[dt]|no fou aprova[dt]|no va ser aprova[dt]|no queda aprova[dt]|rebutja[dt]|es rebutja|desestima[dt])', t): return 'rebutjada', majority
-    if re.match(r'(?:s aprov|aprova[dt]|queda aprova[dt]|fou aprova[dt]|va ser aprova[dt])', t): return 'aprovada', majority
+    if re.match(r'(?:no s aprov|no aprova[dt]|no fou aprova[dt]|no va ser aprova[dt]|no queda aprova[dt]|rebutja[dt]|es rebutja|desestima[dt]|desfavorable)', t): return 'rebutjada', majority
+    if re.match(r'(?:s aprov|aprova[dt]|queda aprova[dt]|fou aprova[dt]|va ser aprova[dt]|favorable)', t): return 'aprovada', majority
     return None, None
 
-def classify_point(segment):
+def classify_point(segment, amendment=False):
     # Resultat final d'un punt: es descarten la votació d'urgència i la d'introducció d'esmenes.
+    # amendment: el punt és una esmena a la totalitat d'una altra moció i el seu resultat és el d'aquesta votació.
     s = re.sub(r'\s+', ' ', segment.replace('’', "'"))
-    final = amendments = None
+    final = None; amendments = (None, None)
     for part in re.split(r'VOTACI[ÓO]', s)[1:]:
         label, colon, body = part.partition(':')
         if not colon or len(label) > 80: continue
         label = fold(label)
         if 'urgencia' in label: continue
-        if 'esmen' in label: amendments = verdict(body)[0]; continue
-        inline = re.match(r"\s*Introducci[óo] d'esmenes\s*:(.*?)Moci[óo]\s*:(.*)", body, re.I)
-        if inline: amendments, body = verdict(inline[1])[0], inline[2]
-        if fold(body).startswith(('text esmenat', 'el text esmenat')): amendments = 'aprovada'
+        if 'esmen' in label: amendments = verdict(body); continue
+        inline = re.match(r"\s*Introducci[óo] d'esmenes\s*:(.*?)(?:Moci[óo]|Sentit de l'acord)\s*:(.*)", body, re.I)
+        if inline: amendments, body = verdict(inline[1]), inline[2]
+        # Actes del 2022: «Votada la urgència / la introducció d'esmenes … s'aprova…, a continuació posat en votació: Favorable…».
+        voted = re.match(r"\s*Votada la (urg[eè]ncia|introducci[óo] d'esmenes)(.*?)posa(?:da|t) en votaci[óo]\s*:(.*)", body, re.I)
+        if voted:
+            if 'esmen' in fold(voted[1]): amendments = ('rebutjada' if 'no s aprov' in fold(voted[2]) else 'aprovada' if re.search(r'\bs aprov|\baprovad', fold(voted[2])) else None, None)
+            body = voted[3]
+        if fold(body).startswith(('text esmenat', 'el text esmenat')): amendments = ('aprovada', None)
         final = body
+    if amendment: return {'result': amendments[0], 'majority': amendments[1]} if amendments[0] else None
     if final is None:
         # Actes del 2022: «La proposta fou aprovada…» o «Sentit de l'acord: la moció NO s'aprova…».
         m = re.search(r"(?:la proposta|la moci[óo]) ((?:no )?(?:fou |va ser |queda )?(?:aprovada|s'aprova)[^.]*)", s, re.I)
         if m: final = m[1]
     if final is not None:
         result, majority = verdict(final)
-        if result == 'aprovada' and amendments == 'aprovada': result = 'aprovada amb esmenes'
+        if result == 'aprovada' and amendments[0] == 'aprovada': result = 'aprovada amb esmenes'
         return {'result': result, 'majority': majority} if result else None
     t = fold(s)
-    if re.search(r'\bes retira de l ordre del dia|\bretirar de l ordre del dia|\bla retirada de la mocio|\bqueda retirada|\bretira la mocio', t): return {'result': 'retirada', 'majority': None}
-    if re.search(r'\b(?:queda|quedar|torna a quedar) (?:sobre|damunt) la taula', t): return {'result': 'sobre la taula', 'majority': None}
+    if re.search(r'\bes retir(?:a|en) de l ordre del dia|\bretirar de l ordre del dia|\bla retirada de la mocio|\bqueda retirada|\bretira la mocio', t): return {'result': 'retirada', 'majority': None}
+    if re.search(r'\b(?:queda|quedar|torna a quedar|es deixa) (?:a )?(?:sobre|damunt) (?:de )?la taula', t): return {'result': 'sobre la taula', 'majority': None}
     return None
 
-def motion_results(text, agenda):
+def point_key(item):
+    # Subpunts («11.1 Moció…»): l'ordre del dia en desa el número del pare i el subnúmero al començament
+    # del títol. La clau els distingeix del punt pare, que té el mateix número.
+    m = re.match(r'(\d{1,2})(?:[ \t]*[.\-–)]+|[ \t]+)(?!\d)', item['title'])
+    return f"{item['number']}.{m[1]}" if m else str(item['number'])
+
+def point_segment(text, label, words, next_labels):
     # L'acta repeteix l'ordre del dia al començament: el punt és la darrera aparició del número seguit
     # de l'inici del títol (pot anar precedit de «Moció presentada pel grup…» o enganxat a la línia anterior).
+    # Un subpunt («11.1») pot anar sense signe; un punt l'exigeix i no pot ser el començament d'un subpunt.
+    mark = r'(?!\d)[ \t]*[.\-–)]*' if '.' in label else r'[ \t]*[.\-–)]+(?!\d)'
+    # El títol s'ha de trobar abans de l'enllaç al vídeo: si no, seria el del punt següent.
+    found = [h for h in re.finditer(rf'(?<![\d.,/]){label}{mark}[ \t]*(?=\S)', text) if words and words in fold(POINT_END.split(text[h.end():h.end() + 400])[0])]
+    if not found: return None, None
+    rest = text[found[-1].end():]
+    # El punt acaba a l'enllaç al vídeo o al punt següent («N.-»; les llistes numerades del text no compten).
+    ends = [m.start() for m in [POINT_END.search(rest)] + [re.search(p, rest) for p in next_labels] if m]
+    return found[-1], rest[:min(ends)] if ends else rest
+
+def motion_results(text, agenda):
     results, done = [], set()
     for a in agenda:
-        number = int(a['number'])
-        if not is_motion(a['title']) or number in done: continue
-        words = ' '.join(fold(a['title']).split()[:6])
-        found = [h for h in re.finditer(rf'(?<![\d.,/]){number}[ \t]*[.\-–)]+[ \t]*(?=\S)', text) if words and words in fold(text[h.end():h.end() + 400])]
-        if not found: continue
-        rest = text[found[-1].end():]
-        # El punt acaba a l'enllaç al vídeo o al punt següent («N.-»; les llistes numerades del text no compten).
-        ends = [m.start() for m in (POINT_END.search(rest), re.search(rf'(?m)^[ \t]*{number + 1}[ \t]*\.?[ \t]*[-–][ \t]*\S', rest)) if m]
-        point = classify_point(rest[:min(ends)] if ends else rest)
-        if point: results.append({'number': a['number'], **point}); done.add(number)
+        key = point_key(a)
+        if not is_motion(a['title']) or key in done: continue
+        number, sub = int(a['number']), key.partition('.')[2]
+        title = fold(re.sub(r'^\d{1,2}[ \t]*[.\-–)]*[ \t]*', '', a['title']) if sub else a['title']).split()
+        following = [rf'(?m)^[ \t]*{number + 1}[ \t]*\.?[ \t]*[-–][ \t]*\S']
+        if sub: following.append(rf'(?m)^[ \t]*{number}\.{int(sub) + 1}(?!\d)')
+        label = rf'{number}\.{sub}' if sub else str(number)
+        _, segment = point_segment(text, label, ' '.join(title[:6]), following)
+        point = segment and classify_point(segment, sub and 'esmena a la totalitat' in fold(segment[:1500]))
+        if not point and not sub and len(title) >= 12:
+            # L'acta pot numerar el punt diferent de l'ordre del dia (un punt afegit a la sessió): es busca
+            # amb qualsevol número i més paraules del títol perquè no es confongui amb una altra moció.
+            hit, _ = point_segment(text, r'(\d{1,2})', ' '.join(title[:20]), [])
+            if hit and int(hit[1]) != number:
+                renumbered = int(hit[1])
+                _, segment = point_segment(text, str(renumbered), ' '.join(title[:20]), [rf'(?m)^[ \t]*{renumbered + 1}[ \t]*\.?[ \t]*[-–][ \t]*\S'])
+                point = segment and classify_point(segment)
+        if point: results.append({'number': key, **point}); done.add(key)
     return results
 
 def pdf_text(data):
@@ -602,7 +635,7 @@ def collect_votes(sessions, links, capture, previous=None, fetch=get_pdf, read=p
         if sid not in agendas: continue
         if sid in known and known[sid]['url'] == url:
             # Si l'ordre del dia indexat ha canviat, un punt desaparegut no ha d'invalidar la resta.
-            numbers = {str(a['number']) for a in agendas[sid]}
+            numbers = {point_key(a) for a in agendas[sid]}
             read_rows.append(known[sid]); results.extend(v for v in old.get(sid, []) if v['number'] in numbers); continue
         found = motion_results(read(fetch(url)), agendas[sid])
         read_rows.append({'session': sid, 'url': url, 'capturedAt': capture})
@@ -611,7 +644,7 @@ def collect_votes(sessions, links, capture, previous=None, fetch=get_pdf, read=p
     return {'parser': VOTES_PARSER, 'read': read_rows, 'results': results}
 
 def validate_votes(votes, sessions):
-    ple = {s['id']: {str(a['number']) for a in s['agenda']} for s in sessions if s['body'] == 'Ple'}
+    ple = {s['id']: {point_key(a) for a in s['agenda']} for s in sessions if s['body'] == 'Ple'}
     if votes.get('parser') != VOTES_PARSER or set(votes) != {'parser', 'read', 'results'}: raise ValueError('Votacions invàlides')
     read = set()
     for r in votes['read']:

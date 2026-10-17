@@ -370,6 +370,42 @@ class MotionVoteTests(unittest.TestCase):
         self.assertEqual(m.classify_point('VOTACIÓ: text esmenat: Aprovat per UNANIMITAT'), {'result': 'aprovada amb esmenes', 'majority': 'unanimitat'})
         self.assertEqual(m.classify_point('El grup proposant decideix retirar de l’ordre del dia la moció que es va deixar damunt la taula.'), {'result': 'retirada', 'majority': None})
         self.assertEqual(m.classify_point('VOTACIÓ: Donat compte.'), None)
+        self.assertEqual(m.classify_point('VOTACIÓ:\nIntroducció d’esmenes: Aprovada per Unanimitat\nSentit de l’acord: La moció fou aprovada per Unanimitat'), {'result': 'aprovada amb esmenes', 'majority': 'unanimitat'})
+        self.assertEqual(m.classify_point('VOTACIÓ: Votada la introducció d’esmenes d’aquest tema s’aprova per unanimitat, s’inclouen a la proposta, a continuació posada en votació: Favorable per Unanimitat.'), {'result': 'aprovada amb esmenes', 'majority': 'unanimitat'})
+        self.assertEqual(m.classify_point('VOTACIÓ: Votada la urgència d’aquest tema s’aprova per unanimitat, s’inclou en l’ordre del dia de la sessió, a continuació posat en votació: NO s’aprova, amb els vots següents:'), {'result': 'rebutjada', 'majority': None})
+        self.assertEqual(m.classify_point('VOTACIÓ: text moció inicial, s’aprova per Majoria segons els vots següents:'), {'result': 'aprovada', 'majority': 'majoria'})
+        self.assertEqual(m.classify_point('A proposta del grup municipal A, la moció es deixa a sobre de la taula.'), {'result': 'sobre la taula', 'majority': None})
+        self.assertEqual(m.classify_point('Es retiren de l’ordre del dia per acord de la junta de portaveus.'), {'result': 'retirada', 'majority': None})
+        self.assertEqual(m.classify_point('Es retira de l’ordre del dia'), {'result': 'retirada', 'majority': None})
+
+    def test_subpoints_have_their_own_result(self):
+        # «5.1» és una esmena a la totalitat de la moció 5; «6.1» i «6.2» són mocions urgents.
+        point5 = '5.- Moció presentada pel grup municipal B i que porta per títol: Moció de suport al sector educatiu.'
+        point51 = '5.1.- D’acord amb l’article 98 ROM, la moció presentada pel grup municipal C s’incorpora a l’ordre del dia com a esmena a la totalitat a la moció del grup B.'
+        point61, point62 = '6.1   Moció presentada pel grup municipal A que porta per títol "Moció de suport al comerç".', '6.2   Moció presentada pel grup municipal C amb el títol "Moció pel tren".'
+        link = 'Es pot consultar aquest punt mitjançant l’enllaç següent:'
+        minutes = '\n'.join([point5, point51, '6.- Proposicions i mocions sobrevingudes.', point61, point62, '7.- Precs i preguntes.', 'DESENVOLUPAMENT',
+            point5, 'El contingut de la moció és el que es transcriu a continuació.', point51, 'El contingut de l’esmena és el que es transcriu a continuació.',
+            'VOTACIÓ de la introducció d’esmenes a la totalitat d’acord amb l’article 98 ROM: No s’aproven per Majoria segons els vots següents:',
+            'VOTACIÓ: text moció inicial, s’aprova per Majoria segons els vots següents:', link, '6.- Proposicions i mocions sobrevingudes.',
+            point61, 'VOTACIÓ: Votada la urgència d’aquest tema s’aprova per unanimitat, s’inclou en l’ordre del dia de la sessió, a continuació posat en votació: Favorable per Unanimitat.', link,
+            point62, 'VOTACIÓ: Votada la urgència d’aquest tema s’aprova per unanimitat, s’inclou en l’ordre del dia de la sessió, a continuació posat en votació: NO s’aprova, amb els vots següents:', link,
+            '7.- Precs i preguntes.'])
+        agenda = [{'number': '5', 'title': point5[4:]}, {'number': '5', 'title': point51[2:]}, {'number': '6', 'title': 'Proposicions i mocions sobrevingudes.'},
+                  {'number': '6', 'title': '1 ' + point61[6:]}, {'number': '6', 'title': '2 ' + point62[6:]}, {'number': '7', 'title': 'Precs i preguntes.'}]
+        self.assertEqual([m.point_key(a) for a in agenda], ['5', '5.1', '6', '6.1', '6.2', '7'])
+        self.assertEqual(m.motion_results(minutes, agenda), [
+            {'number': '5', 'result': 'aprovada', 'majority': 'majoria'}, {'number': '5.1', 'result': 'rebutjada', 'majority': 'majoria'},
+            {'number': '6.1', 'result': 'aprovada', 'majority': 'unanimitat'}, {'number': '6.2', 'result': 'rebutjada', 'majority': None}])
+        self.assertEqual(m.point_key({'number': '3', 'title': '1r pla de mobilitat'}), '3')
+
+    def test_point_renumbered_in_the_minutes_is_found_by_its_title(self):
+        # Un punt afegit a la sessió desplaça la numeració: la moció 10 de l'ordre del dia és l'11 a l'acta.
+        motion = 'Moció presentada pel grup municipal A i que porta per títol: Moció per recuperar els cursets de natació de primer.'
+        link = 'Es pot consultar aquest punt mitjançant l’enllaç següent:'
+        minutes = '\n'.join(['10.- ' + motion, '11.- Proposicions i mocions sobrevingudes.', 'DESENVOLUPAMENT', '10.- Aprovar una distinció a una entitat.', 'VOTACIÓ: S’aprova per unanimitat.', link,
+                             '11.- ' + motion, 'VOTACIÓ: No s’aprova per Majoria segons els vots següents:', link, '12.- Proposicions i mocions sobrevingudes.'])
+        self.assertEqual(m.motion_results(minutes, [{'number': '10', 'title': motion}]), [{'number': '10', 'result': 'rebutjada', 'majority': 'majoria'}])
 
     def test_minutes_link_comes_from_the_acta_block(self):
         page = '<p class="step-header"> Convocatòria </p><a href="/session/downloadItem/aaa1">Ordre</a><p class="step-header"> Acta </p><div><a class="btn" href="/session/downloadItem/bbb2" title="Acta.pdf">Acta</a>'

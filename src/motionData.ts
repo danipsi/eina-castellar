@@ -71,7 +71,7 @@ export function extractMotions(data: Catalog): Motion[] {
       const parsed = parseMotion(item.title);
       if (!parsed) continue;
       const id = motionId(parsed);
-      const vote = votes.get(`${s.id}|${item.number}`);
+      const vote = votes.get(`${s.id}|${pointKey(item)}`);
       const appearance: Appearance = {sessionId: s.id, date: s.date, number: String(item.number), text: item.title, url: s.url, carriedOver: parsed.carriedOver, withdrawn: parsed.withdrawn,
         ...(minutes.has(s.id) && {minutesUrl: minutes.get(s.id)}), ...(vote && {vote: {result: vote.result, majority: vote.majority}})};
       const found = byId.get(id);
@@ -80,6 +80,13 @@ export function extractMotions(data: Catalog): Motion[] {
     }
   }
   return [...byId.values()].sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'ca'));
+}
+
+// Clau del punt als resultats de l'acta. Els subpunts («11.1 Moció…») es desen amb el número del pare
+// i el subnúmero al començament del títol: la clau els distingeix del punt pare (com al capturador).
+export function pointKey(item: {number: string | number; title: string}) {
+  const sub = /^(\d{1,2})(?:[ \t]*[.\-–)]+|[ \t]+)(?!\d)/.exec(item.title);
+  return sub ? `${item.number}.${sub[1]}` : String(item.number);
 }
 
 // Actes llegides (sessió → PDF) i resultats per sessió i punt.

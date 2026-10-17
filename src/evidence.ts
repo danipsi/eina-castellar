@@ -2,7 +2,7 @@ import type {Agreement, BudgetRow, Evidence, Peers, SupplierYear} from './types'
 import {date, money, number} from './lib';
 import {companyKey} from './supplierData';
 import type {Entity} from './grantData';
-import type {Motion} from './motionData';
+import {MAJORITY_LABEL, actaResult, type Motion} from './motionData';
 import {entityHref, type EntityTrail} from './entityData';
 import {perCapita, versusMedian, type PeerChapter, type PeerMetric, type PeerStats} from './peerData';
 
@@ -33,9 +33,9 @@ export function agreementEvidence(a: Agreement): Evidence {
 }
 
 export function motionEvidence(m: Motion, groups: string[], capturedAt: string): Evidence {
-  const first = m.appearances[0];
+  const first = m.appearances[0], acta = actaResult(m);
   return {id: `motion:${m.id}`, kind: 'motion', title: m.title, url: first.url, source: 'Ordres del dia del Ple', capturedAt,
-    locator: `Moció${groups.length ? ` · ${groups.join(' i ')}` : ''} · Ple del ${date(first.date)}, punt ${first.number}${m.appearances.length > 1 ? ` · ${m.appearances.length} sessions` : ''} · registre ${first.sessionId}`,
+    locator: `Moció${groups.length ? ` · ${groups.join(' i ')}` : ''} · Ple del ${date(first.date)}, punt ${first.number}${m.appearances.length > 1 ? ` · ${m.appearances.length} sessions` : ''}${acta ? ` · segons l’acta del ${date(acta.date)}: ${acta.result}${acta.majority ? ' ' + MAJORITY_LABEL[acta.majority] : ''}` : ''} · registre ${first.sessionId}`,
     href: `#motions?motion=${q(m.id)}`};
 }
 

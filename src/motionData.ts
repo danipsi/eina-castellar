@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import type {Catalog} from './types';
+import type {Catalog, MotionVote} from './types';
 import {normalize} from './lib';
 
 // Mocions extretes dels ordres del dia del Ple. El grup i el títol surten del text
@@ -11,7 +11,9 @@ export const COMPLIANCE = ['', 'pendent', 'en curs', 'complerta', 'parcial', 'in
 export type MotionStatus = typeof MOTION_STATUSES[number];
 export type Compliance = typeof COMPLIANCE[number];
 export type MotionMark = {status: MotionStatus; compliance: Compliance; note: string; updatedAt: string};
-export type Appearance = {sessionId: string; date: string; number: string; text: string; url: string; carriedOver: boolean; withdrawn: boolean};
+export type ActaVote = Pick<MotionVote, 'result' | 'majority'>;
+// minutesUrl: acta llegida d'aquella sessió; vote: resultat que se n'ha pogut extreure.
+export type Appearance = {sessionId: string; date: string; number: string; text: string; url: string; carriedOver: boolean; withdrawn: boolean; minutesUrl?: string; vote?: ActaVote};
 export type Motion = {id: string; title: string; groups: string[]; appearances: Appearance[]; date: string};
 
 const APOS = '[\'’]';
@@ -63,18 +65,40 @@ export function agendaMotionId(text: string) {const parsed = parseMotion(text); 
 // Una moció que queda sobre la taula torna a l'ordre del dia: s'agrupa per títol normalitzat i grup.
 export function extractMotions(data: Catalog): Motion[] {
   const byId = new Map<string, Motion>();
+  const {minutes, votes} = actaIndex(data);
   for (const s of [...data.sessions].filter(s => s.body === 'Ple').sort((a, b) => a.date.localeCompare(b.date))) {
     for (const item of s.agenda) {
       const parsed = parseMotion(item.title);
       if (!parsed) continue;
       const id = motionId(parsed);
-      const appearance = {sessionId: s.id, date: s.date, number: String(item.number), text: item.title, url: s.url, carriedOver: parsed.carriedOver, withdrawn: parsed.withdrawn};
+      const vote = votes.get(`${s.id}|${item.number}`);
+      const appearance: Appearance = {sessionId: s.id, date: s.date, number: String(item.number), text: item.title, url: s.url, carriedOver: parsed.carriedOver, withdrawn: parsed.withdrawn,
+        ...(minutes.has(s.id) && {minutesUrl: minutes.get(s.id)}), ...(vote && {vote: {result: vote.result, majority: vote.majority}})};
       const found = byId.get(id);
       if (found) {if (!found.appearances.some(a => a.sessionId === s.id)) found.appearances.push(appearance);}
       else byId.set(id, {id, title: parsed.title, groups: parsed.groups, appearances: [appearance], date: s.date});
     }
   }
   return [...byId.values()].sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'ca'));
+}
+
+// Actes llegides (sessió → PDF) i resultats per sessió i punt.
+export function actaIndex(data: Catalog) {
+  return {minutes: new Map((data.votes?.read ?? []).map(r => [r.session, r.url])), votes: new Map((data.votes?.results ?? []).map(v => [`${v.session}|${v.number}`, v]))};
+}
+
+// Resultat segons l'acta: només el de la darrera aparició. Si la moció torna a l'ordre del dia i l'acta
+// d'aquella sessió encara no s'ha publicat o no s'ha pogut llegir, el resultat anterior ja no és el vigent.
+export function actaResult(m: Motion) {
+  const last = m.appearances[m.appearances.length - 1];
+  return last.vote ? {...last.vote, date: last.date, minutesUrl: last.minutesUrl} : null;
+}
+export const MAJORITY_LABEL = {unanimitat: 'per unanimitat', majoria: 'per majoria'} as const;
+// Estat que es mostra: la marca del grup preval; si no n'hi ha, el resultat de l'acta.
+export function motionStatus(m: Motion, mark?: MotionMark): {status: MotionStatus; origin: 'marca' | 'acta' | ''} {
+  if (mark?.status) return {status: mark.status, origin: 'marca'};
+  const acta = actaResult(m);
+  return acta ? {status: acta.result, origin: 'acta'} : {status: '', origin: ''};
 }
 
 // Variants d'un mateix grup («X», «X Castellar», «X-Y»): s'agrupen quan una forma compacta és

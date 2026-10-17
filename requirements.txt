@@ -1,0 +1,2 @@
+# Lectura de les actes del Ple en PDF (scripts/ingest.py). La resta del capturador és biblioteca estàndard.
+pypdf==6.19.0

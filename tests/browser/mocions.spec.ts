@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
 import fs from 'node:fs/promises';
-import type {Catalog, Session} from '../../src/types';
+import type {Catalog, Session, Votes} from '../../src/types';
 
 // Grups i mocions inventats: la prova no depèn de la captura real.
 const ple = (id: string, date: string, agenda: string[], body: Session['body'] = 'Ple'): Session => ({id, title: `Sessió ${date}`, body, date, url: `https://example.org/${id}`, capturedAt: '2026-10-15', agenda: agenda.map((title, i) => ({number: i + 1, title, expedients: []}))});
@@ -13,7 +13,7 @@ const sessions = [
 
 test.beforeEach(async ({page}) => {
   const data: Catalog = JSON.parse(await fs.readFile('public/data/catalog.json', 'utf8'));
-  await page.route('**/data/catalog.json', route => route.fulfill({json: {...data, sessions}}));
+  await page.route('**/data/catalog.json', route => route.fulfill({json: {...data, sessions, votes: undefined}}));
 });
 
 test('mocions: extracció per grup i any, temes recurrents i aparicions repetides', async ({page}) => {
@@ -58,11 +58,11 @@ test('mocions: marques locals, filtres, unió de grups i còpia restaurada', asy
   const row = page.locator('.session-row', {hasText: 'parc fluvial'});
   await expect(row).toContainText('Aprovada');
   await expect(row).toContainText('Compliment: en curs');
-  await expect(page.locator('.stat', {hasText: 'Amb estat marcat'})).toContainText('1 de 4');
+  await expect(page.locator('.stat', {hasText: 'Amb resultat'})).toContainText('1 de 4');
   await expect(page.locator('.stat', {hasText: 'Aprovades per complir'})).toContainText('1');
   await page.goto('/#overview');
   const pending = page.locator('.pending-motions');
-  await expect(pending).toContainText('1 de 4 mocions amb estat marcat');
+  await expect(pending).toContainText('1 de 4 mocions amb resultat');
   await pending.getByRole('link', {name: /parc fluvial/}).click();
   await expect(page.getByRole('dialog', {name: 'Seguiment de la moció'})).toContainText('Compromís de redactar');
   await page.keyboard.press('Escape');
@@ -90,13 +90,54 @@ test('mocions: marques locals, filtres, unió de grups i còpia restaurada', asy
   await page.evaluate(() => localStorage.clear());
   await page.goto('/#motions');
   await page.reload();
-  await expect(page.locator('.session-row', {hasText: 'parc fluvial'})).toContainText('Estat sense marcar');
+  await expect(page.locator('.session-row', {hasText: 'parc fluvial'})).toContainText('Sense resultat a l’acta');
   await page.getByLabel('Importa seguiment de mocions JSON').setInputFiles(file);
   await expect(page.getByRole('status').filter({hasText: 'S’han incorporat 1 marques'})).toBeVisible();
   await expect(page.locator('.session-row', {hasText: 'parc fluvial'})).toContainText('Aprovada');
   await expect(page.locator('.motion-matrix tbody tr')).toHaveCount(2);
   await page.getByLabel('Importa seguiment de mocions JSON').setInputFiles({name: 'dolent.json', mimeType: 'application/json', buffer: Buffer.from('{"schemaVersion":1,"marks":{"x":{}}}')});
   await expect(page.getByRole('status').filter({hasText: 'no és un seguiment de mocions vàlid'})).toBeVisible();
+});
+
+test('mocions: resultat llegit de l’acta i marca del grup que preval', async ({page}) => {
+  const acta = (id: string) => `https://actes.castellarvalles.cat/session/downloadItem/${id}`;
+  const votes: Votes = {parser: 1, read: [{session: 's1', url: acta('a1'), capturedAt: '2026-10-16'}, {session: 's2', url: acta('a2'), capturedAt: '2026-10-16'}], results: [
+    {session: 's1', number: '1', result: 'sobre la taula', majority: null},
+    {session: 's2', number: '1', result: 'aprovada amb esmenes', majority: 'unanimitat'},
+    {session: 's2', number: '2', result: 'rebutjada', majority: 'majoria'},
+  ]};
+  await page.route('**/data/catalog.json', async route => {const data: Catalog = JSON.parse(await fs.readFile('public/data/catalog.json', 'utf8')); await route.fulfill({json: {...data, sessions, votes}});});
+  await page.goto('/#motions');
+  const row = (text: string) => page.locator('.session-row', {hasText: text});
+  await expect(row('parc fluvial')).toContainText('Aprovada amb esmenes');
+  await expect(row('parc fluvial')).toContainText('per unanimitat, segons l’acta');
+  await expect(row('enllumenat')).toContainText('Rebutjada');
+  await expect(row('parc infantil')).toContainText('Sense resultat a l’acta');
+  await expect(page.locator('.stat', {hasText: 'Amb resultat'})).toContainText('2 de 4');
+  await expect(page.locator('.stat', {hasText: 'Amb resultat'})).toContainText('2 segons l’acta · 0 marcades aquí');
+  await expect(page.locator('.stat', {hasText: 'Aprovades per complir'})).toContainText('1');
+  await page.getByLabel('Estat de la votació').selectOption('aprovada amb esmenes');
+  await expect(page.locator('.session-row')).toHaveCount(1);
+  await page.getByLabel('Estat de la votació').selectOption('');
+
+  await row('parc fluvial').click();
+  const editor = page.getByRole('dialog', {name: 'Seguiment de la moció'});
+  await expect(editor.locator('.timeline li').first()).toContainText('Acta: sobre la taula');
+  await expect(editor.locator('.timeline li').last()).toContainText('Acta: aprovada amb esmenes per unanimitat');
+  await expect(editor.locator('.timeline li').last().getByRole('link', {name: /Acta \(PDF\)/})).toHaveAttribute('href', acta('a2'));
+  await expect(editor.getByLabel('Resultat de la votació')).toHaveValue('');
+  await expect(editor.getByLabel('Resultat de la votació').locator('option').first()).toHaveText('Segons l’acta (aprovada amb esmenes per unanimitat)');
+  await editor.getByLabel('Resultat de la votació').selectOption('rebutjada');
+  await editor.getByRole('button', {name: 'Desa el seguiment'}).click();
+  await expect(row('parc fluvial')).toContainText('Rebutjada');
+  await expect(row('parc fluvial')).not.toContainText('segons l’acta');
+  await expect(page.locator('.stat', {hasText: 'Aprovades per complir'})).toContainText('0');
+
+  await row('enllumenat').click();
+  await page.getByRole('dialog', {name: 'Seguiment de la moció'}).getByRole('button', {name: 'Obre la sessió'}).click();
+  const agenda = page.locator('.agenda li');
+  await expect(agenda.filter({hasText: 'enllumenat'})).toContainText('Acta: rebutjada per majoria');
+  await expect(page.getByRole('link', {name: /Acta \(PDF\)/})).toHaveAttribute('href', acta('a2'));
 });
 
 test('mocions: suggeriments de variants del nom d’un grup', async ({page}) => {

@@ -333,6 +333,66 @@ class IngestTest(unittest.TestCase):
             row = next(r for r in data['budget'] if r['year']==2024 and r['side']=='despeses' and r['chapter']==chapter)
             self.assertEqual(tuple(row[f] for f in ['initialCents','finalCents','executedCents']),amounts)
 
+class MotionVoteTests(unittest.TestCase):
+    MINUTES = '\n'.join([
+        'ORDRE DEL DIA', '1.- Aprovació acta anterior.', '2.- Moció presentada pel grup municipal A que porta per títol: Moció per millorar els parcs.',
+        '3.- Moció presentada pel grup municipal B que porta per títol: Moció sobre la biblioteca.', '4.- Moció presentada pel grup municipal A per a la neteja.',
+        '5.- Moció presentada pel grup municipal C sobre el transport.', '6.- Precs i preguntes.', 'DESENVOLUPAMENT',
+        '1.- Aprovació acta anterior.', 'VOTACIÓ: S’aprova per unanimitat.', 'Es pot consultar aquest punt mitjançant l’enllaç següent:',
+        '2.- Moció presentada pel grup municipal A que porta per títol: Moció per millorar els parcs.', 'ACORDS', '1. Revisar els parcs.', '3. Fer-ne el manteniment.',
+        'VOTACIÓ URGÈNCIA: Aprovada per Unanimitat.', 'VOTACIÓ de la introducció d’esmenes: S’aprova per UNANIMITAT.',
+        'VOTACIÓ: S’aprova per Majoria segons els vots següents:', 'Vots en contra: 0 (ZERO)', 'Abstencions: 4 (QUATRE) del grup B', 'Vots a favor: 16 (SETZE) dels grups A i C',
+        'Es pot visualitzar aquest punt a l’enllaç següent:',
+        '3.- Moció presentada pel grup municipal B que porta per títol: Moció sobre la biblioteca.', 'La moció queda sobre la taula, amb l’assentiment unànime del ple.',
+        'Es pot visualitzar aquest punt a l’enllaç següent:',
+        '4.- Moció presentada pel grup municipal A per a la neteja.', 'Sentit de l’acord: La moció NO s’aprova amb el resultat de vots següents: Vots en contra: TRETZE (13)',
+        'Es pot visualitzar aquest punt a l’enllaç següent:',
+        '5.- Moció presentada pel grup municipal C sobre el transport.', 'Text de la moció sense resultat llegible.',
+        'Es pot visualitzar aquest punt a l’enllaç següent:', '6.- Precs i preguntes.', 'VOTACIÓ: S’aprova per unanimitat.'])
+    AGENDA = [{'number': '1', 'title': 'Aprovació acta anterior.', 'expedients': []},
+              {'number': '2', 'title': 'Moció presentada pel grup municipal A que porta per títol: Moció per millorar els parcs.', 'expedients': []},
+              {'number': '3', 'title': 'Moció presentada pel grup municipal B que porta per títol: Moció sobre la biblioteca.', 'expedients': []},
+              {'number': '4', 'title': 'Moció presentada pel grup municipal A per a la neteja.', 'expedients': []},
+              {'number': '5', 'title': 'Moció presentada pel grup municipal C sobre el transport.', 'expedients': []}]
+
+    def test_reads_the_final_result_of_each_motion(self):
+        self.assertEqual(m.motion_results(self.MINUTES, self.AGENDA), [
+            {'number': '2', 'result': 'aprovada amb esmenes', 'majority': 'majoria'},
+            {'number': '3', 'result': 'sobre la taula', 'majority': None},
+            {'number': '4', 'result': 'rebutjada', 'majority': None}])
+
+    def test_result_wording_variants(self):
+        self.assertEqual(m.classify_point('VOTACIÓ: Introducció d’esmenes: S’aprova per UNANIMITAT Moció: S’aprova per Unanimitat.'), {'result': 'aprovada amb esmenes', 'majority': 'unanimitat'})
+        self.assertEqual(m.classify_point('VOTACIÓ: La proposta fou aprovada per Majoria amb els vots següents'), {'result': 'aprovada', 'majority': 'majoria'})
+        self.assertEqual(m.classify_point('VOTACIÓ: NO FOU APROVADA, amb la votació següent'), {'result': 'rebutjada', 'majority': None})
+        self.assertEqual(m.classify_point('VOTACIÓ: text esmenat: Aprovat per UNANIMITAT'), {'result': 'aprovada amb esmenes', 'majority': 'unanimitat'})
+        self.assertEqual(m.classify_point('El grup proposant decideix retirar de l’ordre del dia la moció que es va deixar damunt la taula.'), {'result': 'retirada', 'majority': None})
+        self.assertEqual(m.classify_point('VOTACIÓ: Donat compte.'), None)
+
+    def test_minutes_link_comes_from_the_acta_block(self):
+        page = '<p class="step-header"> Convocatòria </p><a href="/session/downloadItem/aaa1">Ordre</a><p class="step-header"> Acta </p><div><a class="btn" href="/session/downloadItem/bbb2" title="Acta.pdf">Acta</a>'
+        self.assertEqual(m.minutes_link(page), m.ACTES + '/session/downloadItem/bbb2')
+        self.assertIsNone(m.minutes_link(page.split('<p class="step-header"> Acta')[0]))
+
+    def test_votes_reuse_minutes_already_read_and_validate(self):
+        sessions = [{'id': 's1', 'body': 'Ple', 'agenda': self.AGENDA}, {'id': 's2', 'body': 'Ple', 'agenda': self.AGENDA}, {'id': 'j1', 'body': 'Junta de Govern', 'agenda': []}]
+        url = m.ACTES + '/session/downloadItem/'
+        read = []
+        votes = m.collect_votes(sessions, {'s1': url + 'a1', 'j1': url + 'x'}, '2026-10-16', fetch=lambda u: read.append(u) or u, read=lambda u: self.MINUTES)
+        self.assertEqual(read, [url + 'a1'])
+        self.assertEqual([v['number'] for v in votes['results']], ['2', '3', '4'])
+        m.validate_votes(votes, sessions)
+        again = m.collect_votes(sessions, {'s1': url + 'a1', 's2': url + 'a2'}, '2026-10-17', votes, fetch=lambda u: read.append(u) or u, read=lambda u: self.MINUTES)
+        self.assertEqual(read, [url + 'a1', url + 'a2'])
+        self.assertEqual(again['read'][0]['capturedAt'], '2026-10-16')
+        self.assertEqual(len(again['results']), 6)
+        broken = copy.deepcopy(again); broken['results'][0]['result'] = 'aprovada per sorpresa'
+        with self.assertRaises(ValueError): m.validate_votes(broken, sessions)
+        broken = copy.deepcopy(again); broken['results'][0]['number'] = '9'
+        with self.assertRaises(ValueError): m.validate_votes(broken, sessions)
+        broken = copy.deepcopy(again); broken['read'][0]['url'] = 'https://example.org/acta.pdf'
+        with self.assertRaises(ValueError): m.validate_votes(broken, sessions)
+
 class PublicationPageTests(unittest.TestCase):
     def test_execucio_enllaca_pagina_publica_si_lexpedient_es_inequivoc(self):
         page = 'https://contractaciopublica.cat/ca/detall-publicacio/{}/300508373'

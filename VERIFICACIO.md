@@ -208,3 +208,13 @@ Verificació executada: 53 escenaris de navegador (2 de nous a `tests/browser/ce
 - **Enllaç segur:** l’apòstrof del nom es codifica (`%27`) perquè la importació de dossiers rebutja enllaços interns amb cometes.
 
 Verificació executada: 58 escenaris de navegador (3 de nous a `tests/browser/entitats.spec.ts`, amb dades inventades) i 4 de producció. TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil amb dades reals, sense errors de consola ni desbordament horitzontal.
+
+## Resultat de les mocions des de les actes del Ple · 17/10/2026
+
+- **Font:** la fitxa de cada ple al portal d’actes enllaça l’acta aprovada en PDF (bloc «Acta», `/session/downloadItem/…`). 57 de 60 plens 2022–2026 en tenien el 16/10/2026: falten els dos darrers, que s’aproven a la sessió següent, i el PLE2023/07. El text s’extreu amb `pypdf` (fixat a `requirements.txt`, instal·lat al flux de GitHub); el capturador continua sense altres dependències.
+- **Lectura:** per a cada moció de l’ordre del dia indexat, el punt és la darrera aparició del número seguit de l’inici del títol (l’acta repeteix l’ordre del dia al començament) fins a l’enllaç «Es pot visualitzar/consultar aquest punt». Es desa només el resultat final i si va ser per unanimitat o per majoria; es descarten la votació d’urgència i la d’introducció d’esmenes (si aquesta s’aprova, el resultat és «aprovada amb esmenes»). També es reconeixen «sobre la taula» i «retirada», i les fórmules del 2022 («La proposta fou aprovada…», «Sentit de l’acord: la moció NO s’aprova…»). No es desa el desglossament de vots ni el text de l’acta.
+- **Dades:** `catalog.votes` (fora de les seccions amb historial de canvis): actes llegides (`read`) i resultats per sessió i punt (`results`). Les actes llegides es reutilitzen a la captura següent (només es descarreguen les noves). Si la lectura falla, es conserva l’anterior i la font ho indica.
+- **Prioritat:** la marca manual del grup preval sobre l’acta; si una moció torna a l’ordre del dia, compta el resultat de la darrera sessió.
+- **Resultats reals (actes descarregades el 16/10/2026):** 96 de 107 punts de moció amb resultat; tots revisats contra el text de l’acta. Els 11 restants: 2 punts amb el mateix número (esmenes a la totalitat), 1 acta amb numeració diferent de l’ordre del dia i 8 del 2022 amb un altre format.
+
+Verificació executada: 29 proves del capturador (4 de noves, amb una acta inventada), 59 escenaris de navegador (1 de nou a `tests/browser/mocions.spec.ts`) i 4 de producció. TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil amb les actes reals, sense errors de consola.

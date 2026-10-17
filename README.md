@@ -13,7 +13,7 @@ MVP funcional d’exploració municipal, en català i amb estètica de tauler so
 - Pressupostos 2022–2026 i liquidacions 2022–2025 per capítol econòmic, comparació anual d’inicial/definitiu/liquidat i exportació de diferències.
 - Catàleg Ple/JGL i punts indexats dels plens amb filtre preventiu de privacitat.
 - Execució de les inversions (capítol 6) per exercici, a la portada i a Pressupost, amb crèdit inicial, definitiu, liquidat i crèdit no executat.
-- Seguiment de mocions del Ple: grup i títol extrets de l’ordre del dia, recompte per grup i any, temes recurrents, i estat de la votació, compliment i notes marcats a mà al navegador, amb exportació i importació JSON i CSV. Suggereix possibles variants del nom d’un mateix grup per unir-les.
+- Seguiment de mocions del Ple: grup i títol extrets de l’ordre del dia, recompte per grup i any, temes recurrents, resultat de la votació llegit de les actes en PDF (es pot corregir a mà) i compliment i notes marcats al navegador, amb exportació i importació JSON i CSV. Suggereix possibles variants del nom d’un mateix grup per unir-les.
 - Patrons a revisar en contractes menors: imports entre el 90 i el 100 % del llindar legal, diversos contractes del mateix adjudicatari o del mateix CPV en un exercici que sumats hi arriben, amb exportació CSV.
 - Venciments i pròrrogues: calendari de la fi del termini inicial dels contractes no menors (data publicada o estimada a partir de la durada) i expedients amb pròrrogues encadenades o extraordinàries segons les fites d’execució de la PSCP, amb exportació CSV.
 - Proveïdors i facturació: factures registrades agregades per emissor i exercici (només persones jurídiques amb denominació pròpia; la resta, sense nom), historial per exercici, contractes del catàleg amb el mateix nom i patró a revisar «per sobre de 18.150 € sense contracte trobat amb aquest nom», amb exportació CSV.
@@ -37,6 +37,7 @@ npm run preview -- --port 4174
 `npm run build` genera **dist**, l’única carpeta que s’ha de publicar. En compilar, les factures dels proveïdors se separen a `dist/data/suppliers.json`, que el web només carrega a les pàgines que les fan servir. `netlify.toml` configura ordre de build, Node.js 24, carpeta i capçaleres. No hi ha secrets ni consultes obligatòries a portals externs durant la consulta web. Les fonts tipogràfiques se serveixen localment.
 
 ```powershell
+py -3.13 -m pip install -r requirements.txt
 py -3.13 scripts/ingest.py
 py -3.13 -m unittest discover -s tests -p test_ingest.py
 npm test
@@ -56,7 +57,7 @@ El període es configura una sola vegada a `config/period.json`: `startYear`, `e
 | `src/` | React, TypeScript, cerca, càlculs, dossiers i estils |
 | `public/data/catalog.json` | Captura normalitzada publicable inclosa al build |
 | `public/data/status.json` | Resultat de la darrera actualització |
-| `scripts/ingest.py` | Adaptadors Python stdlib, validació i publicació atòmica |
+| `scripts/ingest.py` | Adaptadors Python (biblioteca estàndard i `pypdf` per a les actes), validació i publicació atòmica |
 | `dades/observatori.sqlite` | Versions normalitzades excloses del web i de Git |
 | `dades/staging/` | Preparació privada; no entra al build |
 | `tests/` | Proves de dades i fluxos de navegador |

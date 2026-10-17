@@ -45,7 +45,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Instal·la les dependències
-        run: npm ci
+        run: |
+          npm ci
+          python -m pip install -r requirements.txt
       - name: Comprova el capturador
         run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Prepara el navegador de proves

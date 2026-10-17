@@ -13,12 +13,14 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import hashlib
 import html
 from html.parser import HTMLParser
+import io
 import json
 from pathlib import Path
 import re
 import sqlite3
 import sys
 import time
+import unicodedata
 import urllib.parse
 import urllib.request
 
@@ -505,7 +507,124 @@ def parse_agenda(text):
     # Alguns portals repeteixen paràgrafs per adaptació mòbil.
     return list({(a['number'], a['title']): a for a in points}.values())
 
-def collect_sessions(capture, period=PERIOD):
+MINUTES_LINK = re.compile(r'class="step-header">\s*Acta\s*</p>[\s\S]{0,800}?href="(/session/downloadItem/[a-f0-9]+)"')
+POINT_END = re.compile(r'Es pot (?:visualitzar|consultar) (?:aquest|el) punt', re.I)
+VOTES_PARSER = 1
+
+def minutes_link(text):
+    m = MINUTES_LINK.search(text)
+    return ACTES + m[1] if m else None
+
+def is_motion(title):
+    return bool(re.search(r'\bmoci[oó]', title, re.I)) and not re.search(r'sobrevingud', title, re.I)
+
+def fold(value):
+    value = unicodedata.normalize('NFD', str(value).lower()).encode('ascii', 'ignore').decode()
+    return re.sub(r'[^a-z0-9]+', ' ', value).strip()
+
+def verdict(text):
+    # «La proposta fou aprovada…», «Text esmenat: aprovat…»: el subjecte no canvia el sentit.
+    t = re.sub(r'^(?:(?:el )?text esmenat|la proposta|la mocio)\s+', '', fold(text))[:160]
+    majority = 'unanimitat' if 'unanim' in t else 'majoria' if 'majoria' in t else None
+    if re.match(r'(?:no s aprov|no aprova[dt]|no fou aprova[dt]|no va ser aprova[dt]|no queda aprova[dt]|rebutja[dt]|es rebutja|desestima[dt])', t): return 'rebutjada', majority
+    if re.match(r'(?:s aprov|aprova[dt]|queda aprova[dt]|fou aprova[dt]|va ser aprova[dt])', t): return 'aprovada', majority
+    return None, None
+
+def classify_point(segment):
+    # Resultat final d'un punt: es descarten la votació d'urgència i la d'introducció d'esmenes.
+    s = re.sub(r'\s+', ' ', segment.replace('’', "'"))
+    final = amendments = None
+    for part in re.split(r'VOTACI[ÓO]', s)[1:]:
+        label, colon, body = part.partition(':')
+        if not colon or len(label) > 80: continue
+        label = fold(label)
+        if 'urgencia' in label: continue
+        if 'esmen' in label: amendments = verdict(body)[0]; continue
+        inline = re.match(r"\s*Introducci[óo] d'esmenes\s*:(.*?)Moci[óo]\s*:(.*)", body, re.I)
+        if inline: amendments, body = verdict(inline[1])[0], inline[2]
+        if fold(body).startswith(('text esmenat', 'el text esmenat')): amendments = 'aprovada'
+        final = body
+    if final is None:
+        # Actes del 2022: «La proposta fou aprovada…» o «Sentit de l'acord: la moció NO s'aprova…».
+        m = re.search(r"(?:la proposta|la moci[óo]) ((?:no )?(?:fou |va ser |queda )?(?:aprovada|s'aprova)[^.]*)", s, re.I)
+        if m: final = m[1]
+    if final is not None:
+        result, majority = verdict(final)
+        if result == 'aprovada' and amendments == 'aprovada': result = 'aprovada amb esmenes'
+        return {'result': result, 'majority': majority} if result else None
+    t = fold(s)
+    if re.search(r'\bes retira de l ordre del dia|\bretirar de l ordre del dia|\bla retirada de la mocio|\bqueda retirada|\bretira la mocio', t): return {'result': 'retirada', 'majority': None}
+    if re.search(r'\b(?:queda|quedar|torna a quedar) (?:sobre|damunt) la taula', t): return {'result': 'sobre la taula', 'majority': None}
+    return None
+
+def motion_results(text, agenda):
+    # L'acta repeteix l'ordre del dia al començament: el punt és la darrera aparició del número seguit
+    # de l'inici del títol (pot anar precedit de «Moció presentada pel grup…» o enganxat a la línia anterior).
+    results, done = [], set()
+    for a in agenda:
+        number = int(a['number'])
+        if not is_motion(a['title']) or number in done: continue
+        words = ' '.join(fold(a['title']).split()[:6])
+        found = [h for h in re.finditer(rf'(?<![\d.,/]){number}[ \t]*[.\-–)]+[ \t]*(?=\S)', text) if words and words in fold(text[h.end():h.end() + 400])]
+        if not found: continue
+        rest = text[found[-1].end():]
+        # El punt acaba a l'enllaç al vídeo o al punt següent («N.-»; les llistes numerades del text no compten).
+        ends = [m.start() for m in (POINT_END.search(rest), re.search(rf'(?m)^[ \t]*{number + 1}[ \t]*\.?[ \t]*[-–][ \t]*\S', rest)) if m]
+        point = classify_point(rest[:min(ends)] if ends else rest)
+        if point: results.append({'number': a['number'], **point}); done.add(number)
+    return results
+
+def pdf_text(data):
+    from pypdf import PdfReader
+    return '\n'.join(page.extract_text() or '' for page in PdfReader(io.BytesIO(data)).pages)
+
+def get_pdf(url):
+    request = urllib.request.Request(url, headers={'User-Agent': 'ObservatoriCastellar/0.1 (public data research)'})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=90) as r:
+                body = r.read(25_000_001)
+            if len(body) > 25_000_000 or not body.startswith(b'%PDF'): raise ValueError('Document inesperat')
+            return body
+        except Exception:
+            if attempt == 2: raise RuntimeError('L’acta no es pot descarregar') from None
+            time.sleep(1 + attempt)
+
+def collect_votes(sessions, links, capture, previous=None, fetch=get_pdf, read=pdf_text):
+    # Les actes aprovades no canvien: només es llegeixen les noves o les que han canviat d'enllaç.
+    known, old = {}, {}
+    if previous and previous.get('parser') == VOTES_PARSER:
+        for r in previous['read']: known[r['session']] = r
+        for v in previous['results']: old.setdefault(v['session'], []).append(v)
+    agendas = {s['id']: s['agenda'] for s in sessions if s['body'] == 'Ple'}
+    read_rows, results = [], []
+    for sid, url in sorted(links.items()):
+        if sid not in agendas: continue
+        if sid in known and known[sid]['url'] == url:
+            # Si l'ordre del dia indexat ha canviat, un punt desaparegut no ha d'invalidar la resta.
+            numbers = {str(a['number']) for a in agendas[sid]}
+            read_rows.append(known[sid]); results.extend(v for v in old.get(sid, []) if v['number'] in numbers); continue
+        found = motion_results(read(fetch(url)), agendas[sid])
+        read_rows.append({'session': sid, 'url': url, 'capturedAt': capture})
+        results.extend({'session': sid, **r} for r in found)
+        time.sleep(.12)
+    return {'parser': VOTES_PARSER, 'read': read_rows, 'results': results}
+
+def validate_votes(votes, sessions):
+    ple = {s['id']: {str(a['number']) for a in s['agenda']} for s in sessions if s['body'] == 'Ple'}
+    if votes.get('parser') != VOTES_PARSER or set(votes) != {'parser', 'read', 'results'}: raise ValueError('Votacions invàlides')
+    read = set()
+    for r in votes['read']:
+        if set(r) != {'session', 'url', 'capturedAt'} or r['session'] not in ple or r['session'] in read or not r['url'].startswith(ACTES + '/session/downloadItem/'): raise ValueError('Acta invàlida')
+        read.add(r['session'])
+    seen = set()
+    for v in votes['results']:
+        key = (v.get('session'), v.get('number'))
+        if set(v) != {'session', 'number', 'result', 'majority'} or v['session'] not in read or v['number'] not in ple[v['session']] or key in seen: raise ValueError('Resultat de votació invàlid')
+        if v['result'] not in ('aprovada', 'aprovada amb esmenes', 'rebutjada', 'retirada', 'sobre la taula') or v['majority'] not in (None, 'unanimitat', 'majoria'): raise ValueError('Resultat de votació invàlid')
+        seen.add(key)
+
+def collect_sessions(capture, period=PERIOD, links=None):
     all_rows = []
     for body, code in [('Ple', 'ff8080816059f3f1016059f46e5c000d'), ('Junta de Govern', 'ff8080816059f3f1016059f46e62000e')]:
         url = ACTES + '/session/fragmentCustom?' + urllib.parse.urlencode({'sessionTypeId': code, 'startDate': f"01/01/{period['startYear']}", 'endDate': f"31/12/{period['endYear']}", 'search': 'yes', 'max': 1000})
@@ -521,7 +640,9 @@ def collect_sessions(capture, period=PERIOD):
         if annual != links: raise ValueError('Índex anual de sessions inconsistent')
         if body == 'Ple':
             for i, row in enumerate(rows):
-                row['agenda'] = parse_agenda(get(row['url'], False))
+                page = get(row['url'], False)
+                row['agenda'] = parse_agenda(page)
+                if links is not None and (link := minutes_link(page)): links[row['id']] = link
                 if i % 15 == 0: print(f'Plens: {i + 1}/{len(rows)} revisats', flush=True)
                 time.sleep(.12)
         all_rows.extend(rows)
@@ -548,7 +669,8 @@ def collect(period=PERIOD):
     contracts = normalize_contracts(raw['pscp'], raw['rpc'], capture, period)
     events = normalize_events(raw['events'], capture, {c['expedient'] for c in contracts}, period, publication_pages(contracts))
     budget = normalize_budget(raw['initial'], raw['liq'], capture, period)
-    sessions = collect_sessions(capture, period)
+    links = {}
+    sessions = collect_sessions(capture, period, links)
     suppliers, reconciled = normalize_suppliers(raw['invoices'], raw['providers'], capture, period)
     named = sum(1 for s in suppliers if s['name'])
     grants, repeated_grants = normalize_grants(raw['grants'], capture, period)
@@ -557,7 +679,13 @@ def collect(period=PERIOD):
     if peers is not None and optional(lambda: check_peers(peers, budget) or True) is None: peers = None
     # La comparació és complementària: si falla, es conserva la de la captura anterior i no s'atura la resta.
     peers_fresh = peers is not None
-    if not peers_fresh: peers = previous_peers()
+    if not peers_fresh: peers = previous_section('peers')
+    # Les votacions també són complementàries: si no es poden llegir les actes, es conserven les anteriors.
+    old_votes = previous_section('votes')
+    votes = optional(lambda: collect_votes(sessions, links, capture, old_votes), 'Votacions de les actes')
+    votes_fresh = votes is not None
+    if not votes_fresh: votes = old_votes
+    if votes is not None and optional(lambda: validate_votes(votes, sessions) or True, 'Votacions de les actes') is None: votes, votes_fresh = None, False
     first_agreement = min((a['start'] for a in agreements if a['start']), default=None)
     counts = Counter(c['source'] for c in contracts)
     full_period = period_label(period)
@@ -568,7 +696,8 @@ def collect(period=PERIOD):
         source('rpc', 'Registre públic de contractes', 'https://analisi.transparenciacatalunya.cat/d/hb6v-jcbf', counts['RPC'], f'Exercicis {full_period} informats pel registre.', 'Observacions separades de la PSCP. Base d’IVA no acreditada en aquest adaptador. No sumar imports amb els de la PSCP. Font Generalitat; reutilització amb atribució.', capture),
         source('events', 'Execució contractual · PSCP', 'https://analisi.transparenciacatalunya.cat/d/8idu-wkjv', len(events), f'Fites {full_period} i fites d’expedients inclosos en el catàleg.', 'Relació per codi exacte d’expedient; lot conservat. La falta de fites no acredita la inexistència de modificacions o pròrrogues.', capture),
         source('budget', 'Pressupost i liquidació · AOC', 'https://dadesobertes.seu-e.cat/dataset/liquidacio-del-pressupost-execucio-per-capitols', len(budget), f'Pressupost inicial {full_period}; liquidacions {liquidation_period}.', 'Classificació econòmica, nivell 1. La captura inicial exigeix els capítols 1–9 per any i costat. Els imports nuls i els capítols absents de la liquidació queden sense import, no a zero. Font Generalitat/AOC; atribució indicada als registres.', capture, 'partial' if budget_partial else 'ok'),
-        source('sessions', 'Portal municipal d’àudio vídeo actes', ACTES + '/session/portadaPublica', len(sessions), f'Catàleg de plens i juntes {full_period}. Índex contrastat amb consultes anuals.', 'Només punts dels plens que superen el filtre preventiu; JGL només metadades i enllaç. No transcriu vídeos ni acredita votacions. Els ordres del dia tenen cobertura parcial per privacitat i estructura del portal. Documents originals subjectes a les condicions municipals.', capture, 'partial'),
+        source('sessions', 'Portal municipal d’àudio vídeo actes', ACTES + '/session/portadaPublica', len(sessions), f'Catàleg de plens i juntes {full_period}. Índex contrastat amb consultes anuals.', 'Només punts dels plens que superen el filtre preventiu; JGL només metadades i enllaç. No transcriu vídeos; el resultat de les mocions es llegeix de les actes (font pròpia). Els ordres del dia tenen cobertura parcial per privacitat i estructura del portal. Documents originals subjectes a les condicions municipals.', capture, 'partial'),
+        *([source('votes', 'Actes del Ple · resultat de les mocions', ACTES + '/session/portadaPublica', len(votes['results']), f'{len(votes["read"])} actes llegides de {sum(1 for s in sessions if s["body"] == "Ple")} plens {full_period}; les actes s’aproven a la sessió següent.', ('' if votes_fresh else 'No s’han pogut llegir les actes en aquesta captura: es conserva la lectura anterior. ') + 'Resultat final de cada moció (aprovada, aprovada amb esmenes, rebutjada, sobre la taula o retirada) i si va ser per unanimitat o per majoria, llegit automàticament del PDF de l’acta. No es desa el desglossament de vots ni el text de l’acta. Una moció sense resultat no vol dir que no es votés: el format de l’acta no s’ha pogut llegir. Documents originals subjectes a les condicions municipals.', capture, 'partial')] if votes else []),
         source('suppliers', 'Registre de factures i relació de proveïdors', INVOICES_DATASET, named, f'Factures registrades {full_period} · exercici que informa la font; l’any en curs és parcial.', 'Factures agregades per emissor i exercici, amb IVA tal com consten. Només es publiquen noms de persones jurídiques amb denominació pròpia (tipus deduït de la lletra del NIF, que no es publica); persones físiques, societats civils i comunitats de béns s’agreguen per exercici sense nom. ' + ('Els totals per exercici quadren amb la relació anual de proveïdors.' if reconciled else 'Els totals per exercici no quadren amb la relació anual de proveïdors: consulta les fonts originals.') + ' Registrar una factura no acredita el pagament. Font Ajuntament/AOC; llicència cc-by.', capture, 'ok' if reconciled else 'partial'),
         source('grants', 'Concessions de subvencions · MINHAP/AOC', GRANTS_DATASET, sum(g['grants'] for g in grants), f'Concessions atorgades per l’Ajuntament {full_period}, per data de concessió; la font comença el maig del 2022.', 'Rèplica de la Base de Dades Nacional de Subvencions. Només es publiquen noms de persones jurídiques amb denominació pròpia (tipus deduït de la lletra del NIF, que no es publica); les concessions a persones físiques, societats civils i comunitats de béns s’agreguen per acord sense nom. ' + (f'{repeated_grants} files idèntiques (mateixa data, acord, beneficiari i import) es compten una sola vegada. ' if repeated_grants else '') + 'El procediment (amb convocatòria o sense) es dedueix del títol de l’acord. Font Ministeri d’Hisenda/AOC; llicència cc-zero.', capture),
         source('agreements', 'Convenis de col·laboració · Ajuntament', AGREEMENTS_DATASET, len(agreements), f'Tots els convenis que publica la font (inicis des del {first_agreement[:4] if first_agreement else "—"}), no només els del període.', 'Codi, títol, vigència, estat i si és prorrogable, tal com els declara l’Ajuntament; la font no informa imports ni signants. Les dates sentinella (1900) i les absents queden sense data. Un conveni «en curs» amb la data de fi passada pot tenir una pròrroga que no hi consta. Font Ajuntament/AOC; la fitxa no especifica llicència: es reprodueixen només metadades amb l’enllaç a l’original.', capture, 'partial'),
@@ -579,17 +708,18 @@ def collect(period=PERIOD):
         sources.append(source('peers', 'Comparació amb municipis de 15.000–35.000 habitants · Idescat i AOC', POPULATION_PAGE, compared, f'{compared} municipis segons el padró de {peers["populationYear"]}; pressupost inicial {full_period} i liquidacions {liquidation_period}.', kept + 'Població del padró municipal a 1 de gener (Idescat). Imports dels ajuntaments per capítol econòmic (AOC), sense ens dependents ni consolidació: un servei gestionat per una empresa municipal o un consorci no hi apareix igual a tots els municipis. Els municipis sense liquidació d’un exercici queden fora d’aquell exercici. Les xifres de Castellar es contrasten amb la secció de pressupost. Fonts Idescat i Generalitat/AOC; llicència cc-zero (AOC) i atribució (Idescat).', capture if peers_fresh else peers['capturedAt'], 'ok' if peers_fresh else 'partial'))
     catalog = {'schemaVersion': 1, 'generatedAt': capture, 'contracts': contracts, 'events': events, 'budget': budget, 'sessions': sessions, 'suppliers': suppliers, 'grants': grants, 'agreements': agreements, 'sources': sources, 'changes': []}
     if peers: catalog['peers'] = peers
+    if votes: catalog['votes'] = votes
     return catalog
 
-def optional(job):
+def optional(job, label='Comparació amb municipis'):
     try: return job()
     except Exception as e:
-        print('Comparació amb municipis no disponible: ' + type(e).__name__, file=sys.stderr, flush=True)
+        print(label + ' no disponible: ' + type(e).__name__, file=sys.stderr, flush=True)
         return None
 
-def previous_peers(root=ROOT):
+def previous_section(name, root=ROOT):
     path = root / 'public' / 'data' / 'catalog.json'
-    try: return json.loads(path.read_text(encoding='utf-8')).get('peers')
+    try: return json.loads(path.read_text(encoding='utf-8')).get(name)
     except (OSError, ValueError): return None
 
 def safe_change_value(field, value):
@@ -661,6 +791,7 @@ def validate(catalog):
                 if k.endswith('Cents') and v is not None and (not isinstance(v, int) or abs(v) > 2**53): raise ValueError('Import no segur')
     if not catalog['contracts'] or not catalog['sessions']: raise ValueError('Catàleg incomplet')
     if 'peers' in catalog: validate_peers(catalog['peers'])
+    if 'votes' in catalog: validate_votes(catalog['votes'], catalog['sessions'])
     validate_changes(catalog)
     if PRIVATE.search(json.dumps(catalog, ensure_ascii=False)): raise ValueError('Identificador personal detectat al paquet')
 

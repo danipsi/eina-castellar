@@ -4,7 +4,8 @@ import type {Dossier} from './types';
 import {date, number} from './lib';
 import {mergeStates} from './motionData';
 import type {MotionState} from './motionData';
-import {asCopy, changed, mergeDossier} from './share';
+import {asCopy, changed, mergeDossier, receivedNotes} from './share';
+import {markExported, markReceived} from './dossierAlerts';
 import type {MergeSummary, Received} from './share';
 import {Badge, Modal} from './ui';
 
@@ -41,6 +42,9 @@ export function ImportPreview({received, dossiers, motions, onSave, onSaveMotion
         const target = row.mode === 'copy' ? (row.local ? asCopy(row.incoming) : row.incoming) : row.merge && changed(row.merge.summary) ? row.merge.dossier : null;
         if (!target) continue;
         await onSave(target); done++; firstId ||= target.id;
+        markReceived(target.id, receivedNotes(row.mode === 'merge' ? row.local : undefined, target));
+        // Un dossier afegit des del fitxer ja és al dia amb qui l'ha enviat.
+        if (row.mode === 'copy') markExported([target.id]);
       }
       if (received.motions && withMotions && (newerMarks || newMerges)) onSaveMotions(mergeStates(motions, received.motions));
       onDone(done ? `${plural(done, 'dossier actualitzat', 'dossiers actualitzats')} en aquest navegador` : 'No hi havia canvis per importar', firstId);

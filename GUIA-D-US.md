@@ -68,6 +68,12 @@ No hi ha cap servidor: l’intercanvi es fa amb fitxers JSON que us passeu per u
 3. Qui el rep prem **Importa** i tria el fitxer. La finestra **Revisa la importació** indica, per a cada dossier, si és nou o si ja el té i què canviarà: fonts i notes noves, elements actualitzats i elements eliminats per qui l’ha enviat. Per a cada dossier es pot triar fusionar-lo, importar-lo com a còpia separada o no importar-lo. El seguiment de mocions es pot incloure o no.
 4. Prem **Confirma la importació**.
 
+Avisos a la llista de dossiers (només en aquest navegador, no viatgen amb els fitxers):
+
+- **N notes noves**: notes noves o modificades que han arribat amb una importació. L’avís desapareix quan obres el dossier; mentre hi ets, aquestes notes porten la marca **Nova**.
+- **Notes de …**: inicials de qui ha escrit notes al dossier, llevat de les teves.
+- **Canvis sense exportar · N dies** o **Mai exportat**: hi ha canvis posteriors a la darrera **Còpia JSON** o **Paquet del grup** (o a la creació) i fa 7 dies o més. Un dossier rebut d’un fitxer es considera al dia en importar-lo; després d’una fusió, la data de referència continua sent la de la teva darrera exportació.
+
 Com es fusiona:
 
 - Cada font, nota i petició té un identificador propi. Si només és en un dels dos fitxers, s’afegeix; si és als dos amb diferències, es queda la versió canviada més recentment (amb la mateixa data, la teva). Per això el rellotge dels ordinadors ha d’estar en hora.

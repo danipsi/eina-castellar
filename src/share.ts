@@ -64,6 +64,13 @@ export function mergeDossier(local: Dossier, incoming: Dossier): {dossier: Dossi
   return {dossier, summary};
 }
 
+// Notes que arriben amb el fitxer: totes si el dossier és nou; si es fusiona, les que no coincideixen amb la versió local.
+export function receivedNotes(local: Dossier | undefined, saved: Dossier): string[] {
+  if (!local) return saved.notes.map(n => n.id);
+  const before = new Map(local.notes.map(n => [n.id, canon(n)]));
+  return saved.notes.filter(n => before.get(n.id) !== canon(n)).map(n => n.id);
+}
+
 // Una còpia separada no comparteix identificadors amb l'original.
 export function asCopy(d: Dossier): Dossier {
   return {id: crypto.randomUUID(), title: d.title, createdAt: d.createdAt, updatedAt: now(), evidence: d.evidence, notes: d.notes.map(n => ({...n, id: crypto.randomUUID()})), ...(d.requests?.length ? {requests: d.requests.map(r => ({...r, id: crypto.randomUUID()}))} : {})};

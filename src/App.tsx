@@ -55,6 +55,11 @@ export function App() {
     return () => {active = false;};
   }, [wantsSuppliers]);
   useEffect(() => {setQuery(searchQuery); setMenu(false); window.scrollTo(0, 0); requestAnimationFrame(() => {mainRef.current?.querySelector<HTMLHeadingElement>('h1')?.focus(); const section = route.params.get('seccio'); if (section) document.getElementById(section)?.scrollIntoView();});}, [route.page, searchQuery, route.params.get('seccio')]);
+  const entityName = route.page === 'entity' ? route.params.get('name') ?? '' : '';
+  useEffect(() => {
+    const label = route.page === 'search' ? (searchQuery ? `Cerca «${searchQuery}»` : 'Cerca') : route.page === 'entity' ? entityName || 'Fitxa d’entitat' : route.page === 'overview' ? '' : pages.find(p => p.id === route.page)?.label;
+    document.title = label ? `${label} · Observatori de Castellar` : 'Observatori de Castellar';
+  }, [route.page, searchQuery, entityName]);
   useEffect(() => {const handle = (e: KeyboardEvent) => {if ((e.ctrlKey || e.metaKey) && e.key === 'k') {e.preventDefault(); searchRef.current?.focus();}}; window.addEventListener('keydown', handle); return () => window.removeEventListener('keydown', handle);}, []);
   useEffect(() => {if (!toast) return; const timer = setTimeout(() => setToast(''), 3500); return () => clearTimeout(timer);}, [toast]);
   function go(page: Page, q = '') {location.hash = page + (q ? `?q=${encodeURIComponent(q)}` : '');}

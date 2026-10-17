@@ -71,6 +71,37 @@ test('portada: venciments pròxims de contractes i convenis', async ({page}) => 
   await expect(page.getByRole('heading', {name: 'Tots els convenis'})).toBeVisible();
 });
 
+test('portada: els lots d’un expedient amb la mateixa data de fi surten en una sola fila', async ({page}) => {
+  const data: Catalog = JSON.parse(await fs.readFile('public/data/catalog.json', 'utf8'));
+  const lots = [
+    contract('l1', {expedient: 'CONT-L', lot: '2', termEnd: '2027-01-31', supplier: 'EMPRESA BETA SL', amountCents: 1000000, title: 'Servei amb lots de prova'}),
+    contract('l2', {expedient: 'CONT-L', lot: '1', termEnd: '2027-01-31', supplier: 'EMPRESA GAMMA SL', amountCents: 2000000, title: 'Servei amb lots de prova'}),
+    contract('l3', {expedient: 'CONT-L', lot: '3', termEnd: '2027-03-31', supplier: 'EMPRESA BETA SL', amountCents: 500000, title: 'Servei amb lots de prova'}),
+  ];
+  await page.route('**/data/catalog.json', route => route.fulfill({json: {...data, contracts: [...contracts, ...lots], events, agreements, peers}}));
+  await page.goto('/#overview');
+  const panel = page.locator('.deadlines');
+  await expect(panel.locator('.deadline-counts')).toContainText('3 contractes');
+  const grouped = panel.locator('.recent-sessions > *', {hasText: 'CONT-L · 2 lots'});
+  await expect(grouped).toHaveCount(1);
+  await expect(grouped).toContainText('EMPRESA GAMMA SL, EMPRESA BETA SL · 30.000,00 € en total');
+  const single = panel.locator('.recent-sessions > *', {hasText: 'CONT-L · lot 3'});
+  await expect(single).toContainText('EMPRESA BETA SL · 5.000,00 €');
+  await grouped.click();
+  await expect(page.getByRole('dialog')).toContainText('EMPRESA GAMMA SL');
+});
+
+test('el títol de la pestanya canvia amb la pàgina', async ({page}) => {
+  await page.goto('/#overview');
+  await expect(page).toHaveTitle('Observatori de Castellar');
+  await page.goto('/#contracts');
+  await expect(page).toHaveTitle('Contractació · Observatori de Castellar');
+  await page.goto('/#search?q=piscina');
+  await expect(page).toHaveTitle('Cerca «piscina» · Observatori de Castellar');
+  await page.goto('/#entity?name=EMPRESA%20ALFA%20SL');
+  await expect(page).toHaveTitle('EMPRESA ALFA SL · Observatori de Castellar');
+});
+
 test('portada: resum entre municipis similars i enllaç a la comparació completa', async ({page}) => {
   await page.goto('/#overview');
   const panel = page.locator('.peer-snapshot');

@@ -1,7 +1,7 @@
 import {useSyncExternalStore} from 'react';
 import type {Page, Selection, Catalog} from './types';
 
-const pages: Page[] = ['overview', 'contracts', 'suppliers', 'entity', 'grants', 'budget', 'sessions', 'motions', 'dossiers', 'sources', 'search'];
+const pages: Page[] = ['overview', 'contracts', 'suppliers', 'entity', 'grants', 'budget', 'sessions', 'motions', 'dossiers', 'sources', 'search', 'legal'];
 const subscribe = (callback: () => void) => {window.addEventListener('hashchange', callback); return () => window.removeEventListener('hashchange', callback);};
 const snapshot = () => location.hash;
 

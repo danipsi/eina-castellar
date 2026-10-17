@@ -107,7 +107,7 @@ Per actualitzar el web: torna a capturar les dades, genera `dist` de nou i puja 
 
 Alternativa amb repositori: configuració inclosa a `netlify.toml`, ordre `npm run build`, carpeta `dist`, Node.js 24. No cal servidor d’API, clau secreta ni cap variable d’entorn. Documentació de [Vite a Netlify](https://docs.netlify.com/build/frameworks/framework-setup-guides/vite/).
 
-Abans d’obrir-lo a tercers, concreta el responsable del web, les condicions de reutilització i revisa els fragments publicables. El filtre de privacitat és preventiu, no una auditoria jurídica ni una anonimització acreditada de tot el corpus.
+El web es presenta com a iniciativa ciutadana independent. La pàgina «Avís legal i contacte» (enllaç al peu, `#legal`) explica qui som, d’on surten les dades i com demanar correccions o retirades a observatoricastellar@gmail.com. L’avís es compromet a respondre en un mes com a màxim: cal revisar aquesta bústia periòdicament. Si es retira una dada, segueix els passos de «Límits d’aquesta versió». Abans d’ampliar les fonts, revisa’n les condicions de reutilització i els fragments publicables. El filtre de privacitat és preventiu, no una auditoria jurídica ni una anonimització acreditada de tot el corpus.
 
 ## Límits d’aquesta versió
 

@@ -23,6 +23,7 @@ MVP funcional d’exploració municipal, en català i amb estètica de tauler so
 - Resum a la portada: venciments dels pròxims sis mesos (contractes PSCP no menors i convenis en curs) i posició de Castellar entre municipis similars en el darrer exercici liquidat.
 - Canal RSS `ple.xml` amb els 25 plens més recents i els punts indexats, generat en compilar a partir de la mateixa captura.
 - Dossiers IndexedDB amb fonts de contractes, sessions, pressupost, proveïdors, subvencions, convenis, mocions i comparació amb municipis (amb enllaç de tornada a la vista), notes, preguntes, hipòtesis, estat de revisió, còpia JSON, Markdown i impressió. Generador de preguntes al Ple, precs i sol·licituds d’informació amb les notes i fonts del dossier, i seguiment de la presentació i la resposta. Intercanvi dins del grup per fitxer JSON (dossier o paquet amb tots els dossiers i el seguiment de mocions): vista prèvia, fusió element a element amb la versió més recent, eliminacions propagades i inicials de l’autor a cada nota. Control de versions entre pestanyes, esborranys per dossier i accés independent del catàleg públic.
+- Avís legal i privacitat (`#legal`, enllaçat al peu): iniciativa ciutadana independent, origen i reutilització de les dades, tractament de dades personals i canal de correccions i retirades (observatoricastellar@gmail.com).
 - Fonts, cobertura, qualitat i detall dels registres nous o modificats del darrer lot de canvis entre captures. Els recomptes antics es mantenen sense inventar-ne detalls.
 
 ## Ordres

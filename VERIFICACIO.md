@@ -218,3 +218,12 @@ Verificació executada: 58 escenaris de navegador (3 de nous a `tests/browser/en
 - **Resultats reals (actes descarregades el 16/10/2026):** 96 de 107 punts de moció amb resultat; tots revisats contra el text de l’acta. Els 11 restants: 2 punts amb el mateix número (esmenes a la totalitat), 1 acta amb numeració diferent de l’ordre del dia i 8 del 2022 amb un altre format.
 
 Verificació executada: 29 proves del capturador (4 de noves, amb una acta inventada), 59 escenaris de navegador (1 de nou a `tests/browser/mocions.spec.ts`) i 4 de producció. TypeScript i Vite correctes. Captures revisades d’escriptori i mòbil amb les actes reals, sense errors de consola.
+
+## Avís legal i privacitat · 17/10/2026
+
+- **Pàgina:** `#legal`, «Avís legal i privacitat», enllaçada des del peu de totes les pàgines («Avís legal i contacte»). Presenta l’Observatori com a iniciativa ciutadana independent i sense ànim de lucre, sense noms de persones.
+- **Contingut:** qui som; fonts i reutilització (Llei 37/2007, llicència de cada font a «Fonts i qualitat», preval la font original); com llegir les dades («patrons a revisar», no irregularitats); dades personals de les persones que surten a les dades i de les que visiten el web (sense galetes de seguiment ni analítica; dades locals al navegador; registres tècnics de l’allotjament); correccions, retirades i drets amb resposta en un mes com a màxim i reclamació a l’AEPD; codi obert GPL-3.0.
+- **Contacte:** observatoricastellar@gmail.com, bústia exclusiva de l’Observatori.
+- **Identificació:** peu «Observatori de Castellar · Iniciativa ciutadana independent · No és un portal oficial de l’Ajuntament» i etiqueta «Iniciativa ciutadana» al menú lateral.
+
+Verificació executada: 64 escenaris de navegador (1 de nou a `tests/browser/avis-legal.spec.ts`: accés des del peu, títol de pestanya, enllaç de correu, enllaç a Fonts i qualitat i amplada mòbil de 390 px sense desplaçament horitzontal) i 4 de producció. TypeScript i Vite correcte. Captures d’escriptori i mòbil revisades.

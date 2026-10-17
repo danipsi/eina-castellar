@@ -235,12 +235,14 @@ class IngestTest(unittest.TestCase):
         original_get = m.get
         def fake_get(url, json_response=True):
             queried.append(url)
-            return '<span class="sessionSummary"></span>' if url == session_url else listing
+            return '<span class="sessionSummary"></span><p class="step-header">Acta</p><a href="/session/downloadItem/def456">PDF</a>' if url == session_url else listing
+        links = {}
         try:
             m.get = fake_get
-            sessions = m.collect_sessions('2026-10-13', period)
+            sessions = m.collect_sessions('2026-10-13', period, links)
         finally:
             m.get = original_get
+        self.assertEqual(list(links.values()), [m.ACTES + '/session/downloadItem/def456'])
         fragment_queries = [url for url in queried if '/session/fragmentCustom?' in url]
         self.assertEqual(len(sessions), 2)
         self.assertEqual(len(fragment_queries), 8)

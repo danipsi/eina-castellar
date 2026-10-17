@@ -630,14 +630,14 @@ def collect_sessions(capture, period=PERIOD, links=None):
         url = ACTES + '/session/fragmentCustom?' + urllib.parse.urlencode({'sessionTypeId': code, 'startDate': f"01/01/{period['startYear']}", 'endDate': f"31/12/{period['endYear']}", 'search': 'yes', 'max': 1000})
         text = get(url, False)
         rows = parse_session_list(text, capture, body, period)
-        links = set(re.findall(r'/session/sessionDetail/([a-f0-9]+)', text))
-        if len(rows) != len(links) or len(rows) >= 1000 or 'class="nextLink"' in text: raise ValueError('Paginació de sessions incompleta')
+        ids = set(re.findall(r'/session/sessionDetail/([a-f0-9]+)', text))
+        if len(rows) != len(ids) or len(rows) >= 1000 or 'class="nextLink"' in text: raise ValueError('Paginació de sessions incompleta')
         # Verificar que la suma dels índexs anuals coincideix amb la consulta completa.
         annual = set()
         for year in period_years(period):
             check = get(ACTES + '/session/fragmentCustom?' + urllib.parse.urlencode({'sessionTypeId': code, 'startDate': f'01/01/{year}', 'endDate': f'31/12/{year}', 'search': 'yes', 'max': 1000}), False)
             annual.update(re.findall(r'/session/sessionDetail/([a-f0-9]+)', check))
-        if annual != links: raise ValueError('Índex anual de sessions inconsistent')
+        if annual != ids: raise ValueError('Índex anual de sessions inconsistent')
         if body == 'Ple':
             for i, row in enumerate(rows):
                 page = get(row['url'], False)

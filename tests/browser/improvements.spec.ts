@@ -64,7 +64,7 @@ test('dates futures fora de la portada, consultables amb avís i exportació fid
   await page.locator('.future-summary a').click();
   await expect(page.getByLabel('Dates dels contractes')).toHaveValue('future');
   await expect(page.locator('.contract-table')).toContainText('CONT2500110');
-  await expect(page.locator('.future-date')).toContainText('Data futura pendent de contrast');
+  await expect(page.locator('.contract-table tr', {hasText: 'CONT2500110'}).locator('.future-date')).toContainText('Data futura pendent de contrast');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', {name: 'Exporta CSV'}).click();
   const text = await fs.readFile((await (await downloadPromise).path())!, 'utf8');

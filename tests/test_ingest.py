@@ -1,11 +1,13 @@
 import copy
-from contextlib import closing
+from contextlib import closing, redirect_stderr
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location('ingest', Path(__file__).parents[1] / 'scripts/ingest.py')
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
@@ -444,5 +446,18 @@ class PublicationPageTests(unittest.TestCase):
         self.assertEqual(m.public_page('https://analisi.transparenciacatalunya.cat/resource/8idu-wkjv.json', 'CONT2300053', pages), 'https://analisi.transparenciacatalunya.cat/resource/8idu-wkjv.json')
         self.assertEqual(m.changed_fields({'url': json_url}, {'url': m.public_page(json_url, 'CONT2300053', pages)}), [])
         self.assertEqual(m.changed_fields({'url': json_url}, {'url': json_url.replace('300828470', '300828471')}), [{'field': 'url'}])
+
+    def test_font_caiguda_es_reintenta_i_lerror_diu_quina_font_ha_fallat(self):
+        calls = []
+        def down(request, timeout):
+            calls.append(request.full_url)
+            raise m.urllib.error.HTTPError(request.full_url, 503, 'Service Unavailable', {}, None)
+        waits = []
+        with mock.patch.object(m.urllib.request, 'urlopen', down), mock.patch.object(m.time, 'sleep', waits.append), redirect_stderr(io.StringIO()):
+            with self.assertRaises(RuntimeError) as error:
+                m.labelled('Pressupost inicial (AOC)', lambda: m.get('https://dadesobertes.example/api/action/datastore_search?resource_id=x'))
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(waits, [30, 60])
+        self.assertEqual(str(error.exception), 'Pressupost inicial (AOC): La font no respon amb el format esperat (HTTPError 503) · dadesobertes.example/api/action/datastore_search')
 
 if __name__ == '__main__': unittest.main()

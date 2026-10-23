@@ -15,12 +15,14 @@ import html
 from html.parser import HTMLParser
 import io
 import json
+import os
 from pathlib import Path
 import re
 import sqlite3
 import sys
 import time
 import unicodedata
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -140,8 +142,25 @@ def same_publication(a, b):
 def stable(*parts):
     return hashlib.sha256(json.dumps(parts, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:24]
 
+# Esperes entre intents: prou llargues per superar una caiguda breu de la font.
+RETRY_WAITS = (30, 60)
+
+def where(url):
+    # Només domini i camí: identifica la font sense paràmetres de consulta.
+    parts = urllib.parse.urlsplit(url)
+    return parts.netloc + parts.path
+
+def failure(error):
+    # Tipus d'error i codi HTTP, mai el contingut de la resposta.
+    return f'{type(error).__name__} {error.code}' if isinstance(error, urllib.error.HTTPError) else type(error).__name__
+
+def retry_or_raise(url, attempt, error, message):
+    if attempt == len(RETRY_WAITS): raise RuntimeError(f'{message} ({failure(error)}) · {where(url)}') from None
+    print(f'{where(url)} no respon ({failure(error)}); es reintenta en {RETRY_WAITS[attempt]} s', file=sys.stderr, flush=True)
+    time.sleep(RETRY_WAITS[attempt])
+
 def get(url, json_response=True):
-    for attempt in range(3):
+    for attempt in range(len(RETRY_WAITS) + 1):
         try:
             request = urllib.request.Request(url, headers={'User-Agent': 'ObservatoriCastellar/0.1 (public data research)', 'Accept': 'application/json' if json_response else 'text/html'})
             with urllib.request.urlopen(request, timeout=50) as r:
@@ -149,9 +168,8 @@ def get(url, json_response=True):
                 if len(body) > 25_000_000: raise ValueError('Resposta massa gran')
                 text = body.decode('utf-8-sig')
                 return json.loads(text) if json_response else text
-        except Exception:
-            if attempt == 2: raise RuntimeError('La font no respon amb el format esperat') from None
-            time.sleep(1 + attempt)
+        except Exception as error:
+            retry_or_raise(url, attempt, error, 'La font no respon amb el format esperat')
 
 def socrata(dataset, where, fields, fetch=get):
     def endpoint(params): return SOC + dataset + '.json?' + urllib.parse.urlencode(params)
@@ -613,15 +631,14 @@ def pdf_text(data):
 
 def get_pdf(url):
     request = urllib.request.Request(url, headers={'User-Agent': 'ObservatoriCastellar/0.1 (public data research)'})
-    for attempt in range(3):
+    for attempt in range(len(RETRY_WAITS) + 1):
         try:
             with urllib.request.urlopen(request, timeout=90) as r:
                 body = r.read(25_000_001)
             if len(body) > 25_000_000 or not body.startswith(b'%PDF'): raise ValueError('Document inesperat')
             return body
-        except Exception:
-            if attempt == 2: raise RuntimeError('L’acta no es pot descarregar') from None
-            time.sleep(1 + attempt)
+        except Exception as error:
+            retry_or_raise(url, attempt, error, 'L’acta no es pot descarregar')
 
 def collect_votes(sessions, links, capture, previous=None, fetch=get_pdf, read=pdf_text):
     # Les actes aprovades no canvien: només es llegeixen les noves o les que han canviat d'enllaç.
@@ -684,6 +701,18 @@ def collect_sessions(capture, period=PERIOD, links=None):
 def source(id, name, url, records, coverage, note, capture, status='ok'):
     return dict(id=id, name=name, url=url, records=records, coverage=coverage, note=note, capturedAt=capture, status=status)
 
+SOURCE_LABELS = {
+    'pscp': 'Contractes PSCP', 'rpc': 'Registre públic de contractes', 'events': 'Execució contractual PSCP',
+    'initial': 'Pressupost inicial (AOC)', 'liq': 'Liquidació del pressupost (AOC)',
+    'invoices': 'Registre de factures (AOC)', 'providers': 'Relació de proveïdors (AOC)',
+    'grants': 'Subvencions (AOC)', 'agreements': 'Convenis (AOC)', 'peers': 'Comparació amb municipis',
+}
+
+def labelled(label, job):
+    # Afegeix el nom de la font a l'error perquè el registre digui d'on ve.
+    try: return job()
+    except Exception as e: raise RuntimeError(f'{label}: {e}') from None
+
 def collect(period=PERIOD):
     capture = stamp()
     jobs = {
@@ -696,14 +725,14 @@ def collect(period=PERIOD):
         'peers': lambda: optional(lambda: collect_peers(capture, period)),
     }
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = {name: pool.submit(job) for name, job in jobs.items()}
+        futures = {name: pool.submit(labelled, SOURCE_LABELS[name], job) for name, job in jobs.items()}
         raw = {name: future.result() for name, future in futures.items()}
     print('APIs completades: ' + ', '.join(f'{k}={len(v) if v is not None else "error"}' for k,v in raw.items()), flush=True)
     contracts = normalize_contracts(raw['pscp'], raw['rpc'], capture, period)
     events = normalize_events(raw['events'], capture, {c['expedient'] for c in contracts}, period, publication_pages(contracts))
     budget = normalize_budget(raw['initial'], raw['liq'], capture, period)
     links = {}
-    sessions = collect_sessions(capture, period, links)
+    sessions = labelled('Portal d’actes (plens i juntes)', lambda: collect_sessions(capture, period, links))
     suppliers, reconciled = normalize_suppliers(raw['invoices'], raw['providers'], capture, period)
     named = sum(1 for s in suppliers if s['name'])
     grants, repeated_grants = normalize_grants(raw['grants'], capture, period)
@@ -921,7 +950,11 @@ def main():
     except Exception as e:
         # No escriure contingut de les respostes ni dades personals al log.
         atomic_json(ROOT / 'public/data/status.json', {'status': 'error', 'attemptedAt': stamp(), 'message': 'Captura aturada. Es conserva el catàleg anterior.', 'errorType': type(e).__name__})
-        print('Captura aturada: ' + str(e), file=sys.stderr); return 1
+        print('Captura aturada: ' + str(e), file=sys.stderr)
+        # A GitHub, l'avís surt a les anotacions de l'execució amb el nom de la font.
+        if os.environ.get('GITHUB_ACTIONS'):
+            print('::error title=Captura aturada::' + str(e).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'), flush=True)
+        return 1
     finally:
         lock.unlink(missing_ok=True)
 

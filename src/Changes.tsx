@@ -14,7 +14,7 @@ function value(field: string, data: string | number | null | undefined) {
 }
 
 function currentRecord(data: Catalog, change: CatalogChange) {
-  if (change.source === 'contracts') {const item = data.contracts.find(r => r.id === change.recordId); if (item) return {title: item.title, url: item.url, selection: {kind: 'contract', item} as Selection};}
+  if (change.source === 'contracts') {const item = data.contracts.find(r => r.id === change.recordId); if (item) return {title: item.lot ? `${item.title} · Lot ${item.lot}` : item.title, url: item.url, selection: {kind: 'contract', item} as Selection};} // el lot distingeix registres d'un mateix expedient amb el mateix títol
   if (change.source === 'sessions') {const item = data.sessions.find(r => r.id === change.recordId); if (item) return {title: item.title, url: item.url, selection: {kind: 'session', item} as Selection};}
   if (change.source === 'budget') {const item = data.budget.find(r => r.id === change.recordId); if (item) return {title: `${item.year} · ${item.side} · ${item.chapterName}`, url: item.url, selection: {kind: 'budget', item} as Selection};}
   if (change.source === 'suppliers') {const item = data.suppliers?.find(r => r.id === change.recordId); if (item) return {title: `${item.year} · ${item.name ?? 'Emissors sense nom publicat'}`, url: item.url};}
